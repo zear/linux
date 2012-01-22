@@ -68,4 +68,9 @@ config LOGO_SUPERH_CLUT224
 	depends on SUPERH
 	default y
 
+config LOGO_GCWZERO_CLUT224
+	bool "224-color GCW-Zero logo"
+	depends on JZ4770_GCW0
+	default n
+
 endif # LOGO
