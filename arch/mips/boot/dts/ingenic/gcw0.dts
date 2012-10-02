@@ -4,6 +4,12 @@
 #include "jz4770.dtsi"
 #include <dt-bindings/clock/ingenic,tcu.h>
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/ingenic,adc.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/sound/ingenic,jz4770-codec.h>
+
 / {
 	compatible = "gcw,zero", "ingenic,jz4770";
 	model = "GCW Zero";
@@ -25,10 +31,412 @@
 		#size-cells = <1>;
 		ranges;
 
-		otg_phy: otg-phy {
-			compatible = "usb-nop-xceiv";
-			clocks = <&cgu JZ4770_CLK_OTG_PHY>;
-			clock-names = "main_clk";
+		regulators {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "simple-bus";
+			ranges = <>;
+
+			vcc: regulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "vcc";
+
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			usb_power: regulator@1 {
+				compatible = "regulator-fixed";
+				regulator-name = "USB Power";
+				gpio = <&gpf 10 0>;
+				enable-active-high;
+
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				vin-supply = <&vcc>;
+			};
+
+			mmc0_power: regulator@2 {
+				compatible = "regulator-fixed";
+				regulator-name = "mmc0_vcc";
+				regulator-always-on;
+
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				vin-supply = <&vcc>;
+			};
+
+			mmc1_power: regulator@3 {
+				compatible = "regulator-fixed";
+				regulator-name = "mmc1_vcc";
+				gpio = <&gpe 9 0>;
+
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				vin-supply = <&vcc>;
+			};
+		};
+
+		usb_charger: usb {
+			compatible = "gpio-charger";
+			charger-type = "usb-sdp";
+			gpios = <&gpb 5 GPIO_ACTIVE_HIGH>;
+		};
+
+		dc_charger: dc {
+			compatible = "gpio-charger";
+			charger-type = "mains";
+			gpios = <&gpf 5 GPIO_ACTIVE_HIGH>;
+		};
+
+		headphones_amp: analog-amplifier@0 {
+			compatible = "simple-audio-amplifier";
+			enable-gpios = <&gpf 3 GPIO_ACTIVE_LOW>;
+			enable-delay-ms = <50>; /* TODO */
+
+			VCC-supply = <&vcc>;
+			sound-name-prefix = "Headphones Amp";
+		};
+
+		speaker_amp: analog-amplifier@1 {
+			compatible = "simple-audio-amplifier";
+			enable-gpios = <&gpf 20 GPIO_ACTIVE_HIGH>;
+
+			VCC-supply = <&vcc>;
+			sound-name-prefix = "Speaker Amp";
+		};
+
+		sound {
+			compatible = "simple-audio-card";
+
+			simple-audio-card,name = "gcw0-audio";
+			simple-audio-card,format = "i2s";
+
+			simple-audio-card,widgets =
+				"Speaker", "Speaker",
+				"Headphone", "Headphones",
+				"Line", "FM Radio",
+				"Microphone", "Built-in Mic";
+			simple-audio-card,routing =
+				"Headphones Amp INL", "LHPOUT",
+				"Headphones Amp INR", "RHPOUT",
+				"Headphones", "Headphones Amp OUTL",
+				"Headphones", "Headphones Amp OUTR",
+				"Speaker Amp INL", "LOUT",
+				"Speaker Amp INR", "ROUT",
+				"Speaker", "Speaker Amp OUTL",
+				"Speaker", "Speaker Amp OUTR",
+				"LLINEIN", "FM Radio",
+				"RLINEIN", "FM Radio",
+				"MIC1P", "Mic Bias",
+				"Built-in Mic", "Mic Bias";
+			simple-audio-card,pin-switches = "Speaker", "Headphones";
+
+			simple-audio-card,hp-det-gpio = <&gpf 21 GPIO_ACTIVE_HIGH>;
+			simple-audio-card,aux-devs = <&speaker_amp>, <&headphones_amp>;
+
+			simple-audio-card,bitclock-master = <&dai_codec>;
+			simple-audio-card,frame-master = <&dai_codec>;
+
+			dai_cpu: simple-audio-card,cpu {
+				sound-dai = <&aic>;
+			};
+
+			dai_codec: simple-audio-card,codec {
+				sound-dai = <&codec>;
+			};
+		};
+
+		rumble {
+			compatible = "pwm-vibrator";
+			pwms = <&pwm 4 2000000 0>;
+			pwm-names = "enable";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&pins_pwm4>;
+		};
+
+		backlight: backlight {
+			compatible = "pwm-backlight";
+			pwms = <&pwm 1 40000 0>;
+			power-supply = <&vcc>;
+
+			brightness-levels = <0 16 32 48 64 80 96 112 128 144 160 176 192 208 224 240 255>;
+			default-brightness-level = <12>;
+
+			pinctrl-names = "init", "sleep", "default";
+			pinctrl-0 = <&pins_pwm1_sleep>;
+			pinctrl-1 = <&pins_pwm1_sleep>;
+			pinctrl-2 = <&pins_pwm1>;
+		};
+
+		gpio-keys {
+			compatible = "gpio-keys";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			autorepeat;
+
+			button@0 {
+				label = "D-pad up";
+				linux,code = <KEY_UP>;
+				gpios = <&gpe 21 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@1 {
+				label = "D-pad down";
+				linux,code = <KEY_DOWN>;
+				gpios = <&gpe 25 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@2 {
+				label = "D-pad left";
+				linux,code = <KEY_LEFT>;
+				gpios = <&gpe 23 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@3 {
+				label = "D-pad right";
+				linux,code = <KEY_RIGHT>;
+				gpios = <&gpe 24 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@4 {
+				label = "Button A";
+				linux,code = <KEY_LEFTCTRL>;
+				gpios = <&gpe 29 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@5 {
+				label = "Button B";
+				linux,code = <KEY_LEFTALT>;
+				gpios = <&gpe 20 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@6 {
+				label = "Button Y";
+				linux,code = <KEY_SPACE>;
+				gpios = <&gpe 27 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@7 {
+				label = "Button X";
+				linux,code = <KEY_LEFTSHIFT>;
+				gpios = <&gpe 28 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@8 {
+				label = "Left shoulder button";
+				linux,code = <KEY_TAB>;
+				gpios = <&gpb 20 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@9 {
+				label = "Right shoulder button";
+				linux,code = <KEY_BACKSPACE>;
+				gpios = <&gpe 26 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@10 {
+				label = "Start button";
+				linux,code = <KEY_ENTER>;
+				gpios = <&gpb 21 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+
+			button@11 {
+				label = "Select button";
+				linux,code = <KEY_ESC>;
+				/* This is the only button that is active high,
+				 * since it doubles as BOOT_SEL1.
+				 */
+				gpios = <&gpd 18 GPIO_ACTIVE_HIGH>;
+				debounce-interval = <10>;
+			};
+
+			button@12 {
+				label = "Power slider";
+				linux,code = <KEY_POWER>;
+				gpios = <&gpa 30 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+				gpio-key,wakeup;
+			};
+
+			button@13 {
+				label = "Power hold";
+				linux,code = <KEY_PAUSE>;
+				gpios = <&gpf 11 GPIO_ACTIVE_LOW>;
+				debounce-interval = <10>;
+			};
+		};
+
+		i2c-controller@2 {
+			compatible = "i2c-gpio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpios = <&gpd 5 GPIO_ACTIVE_HIGH	/* sda */
+				 &gpd 4 GPIO_ACTIVE_HIGH>;	/* scl */
+			i2c-gpio,delay-us = <2>;		/* 250 kHz */
+
+			pmu@5a {			/* power management unit */
+				compatible = "active-semi,act8600";
+				reg = <0x5a>;
+
+				regulators {
+					/* USB OTG */
+					SUDCDC_REG4 {
+						/*
+						 * 5.3V instead of 5.0V to compensate for the
+						 * voltage drop of a diode between the regulator
+						 * and the connector.
+						 */
+						regulator-min-microvolt = <5300000>;
+						regulator-max-microvolt = <5300000>;
+						vin-supply = <&vcc>;
+					};
+
+					/* When this is off, there is no sound, but also no USB networking. */
+					LDO5 {
+						regulator-min-microvolt = <2500000>;
+						regulator-max-microvolt = <2500000>;
+						regulator-always-on;
+						vin-supply = <&vcc>;
+					};
+
+					/* LCD panel and FM radio */
+					ldo6: LDO6 {
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						vin-supply = <&vcc>;
+					};
+
+					/* ??? */
+					LDO7 {
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						/*regulator-always-on;*/
+						vin-supply = <&vcc>;
+					};
+
+					/*
+					 * The colors on the LCD are wrong when this is off.
+					 * Which is strange, since the LCD panel data sheet
+					 * only mentions a 3.3V input.
+					 */
+					ldo8: LDO8 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						vin-supply = <&vcc>;
+					};
+
+					/* RTC fixed 3.3V */
+					LDO_REG9 {
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-always-on;
+						vin-supply = <&vcc>;
+					};
+
+					/* Unused fixed 1.2V */
+					LDO_REG10 {
+						vin-supply = <&vcc>;
+					};
+				};
+
+				act8600_charger: CHARGER { };
+			};
+		};
+
+		i2c4: i2c-controller@3 {
+			compatible = "i2c-gpio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpios = <&gpd 6 GPIO_ACTIVE_HIGH	/* sda */
+				 &gpd 7 GPIO_ACTIVE_HIGH>;	/* scl */
+			i2c-gpio,delay-us = <5>;		/* 100 kHz */
+
+			/* the IT6610 is on this bus, but we don't have a driver for it yet */
+			status = "disabled";
+		};
+
+		leds {
+			compatible = "gpio-leds";
+
+			power {
+				gpios = <&gpb 30 GPIO_ACTIVE_LOW>;
+				default-state = "on";
+			};
+		};
+
+		spi-controller {
+			compatible = "spi-gpio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio-sck = <&gpe 15 GPIO_ACTIVE_HIGH>;
+			gpio-mosi = <&gpe 17 GPIO_ACTIVE_HIGH>;
+			cs-gpios = <&gpe 16 GPIO_ACTIVE_HIGH>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&pins_spi>;
+
+			num-chipselects = <1>;
+
+			nt39016@0 {
+				compatible = "novatek,nt39016";
+				reg = <0>;
+
+				spi-max-frequency = <3125000>;
+				spi-3wire;
+				spi-cs-high;
+
+				reset-gpios = <&gpe 2 GPIO_ACTIVE_LOW>;
+
+				backlight = <&backlight>;
+				power-supply = <&ldo6>, <&ldo8>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					panel_input: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&panel_output>;
+					};
+				};
+			};
+		};
+
+		battery: battery {
+			compatible = "simple-battery";
+			voltage-min-design-microvolt = <4600000>;
+			voltage-max-design-microvolt = <5700000>;
+		};
+
+		pmu {
+			compatible = "ingenic,jz4740-battery";
+			io-channels = <&adc INGENIC_ADC_BATTERY>;
+			io-channel-names = "battery";
+			monitored-battery = <&battery>;
+
+			charger = <&act8600_charger>;
+			power-supplies = <&act8600_charger>, <&usb_charger>, <&dc_charger>;
 		};
 	};
 };
@@ -37,7 +445,61 @@
 	clock-frequency = <12000000>;
 };
 
+&pinctrl {
+	pwm1 {
+		pins_pwm1_sleep: pwm1-sleep {
+			pins = "PE1";
+			output-low;
+		};
+
+		pins_pwm1: pwm1-default {
+			function = "pwm1";
+			groups = "pwm1";
+			bias-disable;
+		};
+	};
+
+	pins_pwm4: pwm4 {
+		function = "pwm4";
+		groups = "pwm4";
+		bias-disable;
+	};
+
+	pins_spi: spi {
+		pins = "PE17";
+		bias-disable;
+	};
+
+	pins_lcd: lcd {
+		function = "lcd";
+		groups = "lcd-24bit";
+	};
+
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data";
+	};
+
+	pins_mmc0: mmc0 {
+		function = "mmc0";
+		groups = "mmc0-1bit-a", "mmc0-4bit-a";
+	};
+
+	pins_mmc1: mmc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit-d", "mmc1-4bit-d";
+	};
+
+	pins_otg: otg {
+		function = "otg";
+		groups = "otg-vbus";
+	};
+};
+
 &uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart2>;
+
 	status = "okay";
 };
 
@@ -49,9 +511,17 @@
 	 */
 	assigned-clocks =
 		<&cgu JZ4770_CLK_PLL1>,
-		<&cgu JZ4770_CLK_UHC>;
+		<&cgu JZ4770_CLK_RTC>,
+		<&cgu JZ4770_CLK_UHC>,
+		<&cgu JZ4770_CLK_LPCLK_MUX>,
+		<&cgu JZ4770_CLK_MMC0_MUX>,
+		<&cgu JZ4770_CLK_MMC1_MUX>;
 	assigned-clock-parents =
 		<0>,
+		<&cgu JZ4770_CLK_OSC32K>,
+		<&cgu JZ4770_CLK_PLL1>,
+		<&cgu JZ4770_CLK_PLL1>,
+		<&cgu JZ4770_CLK_PLL1>,
 		<&cgu JZ4770_CLK_PLL1>;
 	assigned-clock-rates =
 		<432000000>;
@@ -64,9 +534,108 @@
 
 &tcu {
 	/* 750 kHz for the system timer and clocksource */
-	assigned-clocks = <&tcu TCU_CLK_TIMER0>, <&tcu TCU_CLK_TIMER2>;
-	assigned-clock-rates = <750000>, <750000>;
+	assigned-clocks = <&tcu TCU_CLK_TIMER0>, <&tcu TCU_CLK_TIMER2>,
+			  <&tcu TCU_CLK_OST>, <&tcu TCU_CLK_WDT>;
+	assigned-clock-parents = <0>, <0>, <0>, <&cgu JZ4770_CLK_RTC>;
+	assigned-clock-rates = <750000>, <750000>, <12000000>;
 
 	/* PWM1 is in use, so reserve channel #2 for the clocksource */
 	ingenic,pwm-channels-mask = <0xfa>;
+};
+
+&usb_otg {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_otg>;
+};
+
+&rtc {
+	clocks = <&cgu JZ4770_CLK_RTC>;
+	clock-names = "rtc";
+
+	system-power-controller;
+};
+
+&mmc0 {
+	bus-width = <4>;
+	max-frequency = <48000000>;
+	vmmc-supply = <&mmc0_power>;
+	non-removable;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mmc0>;
+};
+
+&mmc1 {
+	bus-width = <4>;
+	max-frequency = <48000000>;
+	cd-gpios = <&gpb 2 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&mmc1_power>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mmc1>;
+};
+
+&mmc2 {
+	/* MMC2 is not used on the GCW0; disable it */
+	status = "disabled";
+};
+
+&lcd {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_lcd>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		panel_output: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&panel_input>;
+		};
+	};
+};
+
+&i2c0 {
+	compatible = "i2c-gpio";
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	gpios = <&gpd 30 GPIO_ACTIVE_HIGH	/* sda */
+		 &gpd 31 GPIO_ACTIVE_HIGH>;	/* scl */
+	i2c-gpio,delay-us = <2>;		/* 250 kHz */
+
+	rda5807@11 {				/* FM radio receiver */
+		compatible = "rdamicro,rda5807";
+		reg = <0x11>;
+		lnan;
+		lnap;
+		lna-current = <2500>;
+		analog-out;
+
+		power-supply = <&ldo6>;
+	};
+};
+
+&i2c1 {
+	compatible = "i2c-gpio";
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	gpios = <&gpe 30 GPIO_ACTIVE_HIGH	/* sda */
+		 &gpe 31 GPIO_ACTIVE_HIGH>;	/* scl */
+	i2c-gpio,delay-us = <2>;		/* 250 kHz */
+
+	mxc6225@15 {				/* g-sensor */
+		compatible = "mxc6225";
+		reg = <0x15>;
+	};
 };
