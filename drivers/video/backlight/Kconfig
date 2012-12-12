@@ -128,6 +128,13 @@ config LCD_HX8357
 	  If you have a HX-8357 LCD panel, say Y to enable its LCD control
 	  driver.
 
+config LCD_NT39016
+	tristate "Novatek NT39016 support"
+	depends on SPI
+	help
+	  If you have a panel contolled by a Novatek NT39016 LCD driver IC,
+	  say Y to enable and configure it.
+
   config LCD_OTM3225A
   	tristate "ORISE Technology OTM3225A support"
   	depends on SPI
