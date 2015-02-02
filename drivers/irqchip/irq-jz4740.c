@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
+#include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/timex.h>
 #include <linux/slab.h>
@@ -28,9 +29,7 @@
 
 #include <asm/io.h>
 
-#include <asm/mach-jz4740/base.h>
-
-#include "../../drivers/irqchip/irqchip.h"
+#include "irqchip.h"
 
 static void __iomem *jz_intc_base;
 static unsigned jz_num_chips;
@@ -41,6 +40,7 @@ static unsigned jz_num_chips;
 #define JZ_REG_INTC_CLEAR_MASK	0x0c
 #define JZ_REG_INTC_PENDING	0x10
 #define CHIP_SIZE		0x20
+#define IRQ_BASE		8
 
 static irqreturn_t jz4740_cascade(int irq, void *data)
 {
@@ -52,7 +52,7 @@ static irqreturn_t jz4740_cascade(int irq, void *data)
 		if (!irq_reg)
 			continue;
 
-		generic_handle_irq(__fls(irq_reg) + (i * 32) + JZ4740_IRQ_BASE);
+		generic_handle_irq(__fls(irq_reg) + (i * 32) + IRQ_BASE);
 	}
 
 	return IRQ_HANDLED;
@@ -88,23 +88,29 @@ static int __init jz47xx_intc_of_init(struct device_node *node, unsigned num_chi
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
 	struct irq_domain *domain;
-	int parent_irq;
+	struct resource res;
+	int ret, parent_irq;
 	unsigned i;
 
 	parent_irq = irq_of_parse_and_map(node, 0);
 	if (!parent_irq)
 		return -EINVAL;
 
+	ret = of_address_to_resource(node, 0, &res);
+	if (ret < 0)
+		return ret;
+
 	jz_num_chips = num_chips;
-	jz_intc_base = ioremap(JZ4740_INTC_BASE_ADDR,
+	jz_intc_base = ioremap(res.start,
 			       ((num_chips - 1) * CHIP_SIZE) + 0x14);
 
 	for (i = 0; i < num_chips; i++) {
 		/* Mask all irqs */
 		writel(0xffffffff, jz_intc_base + JZ_REG_INTC_SET_MASK);
 
-		gc = irq_alloc_generic_chip("INTC", 1, JZ4740_IRQ_BASE + (i * 32),
-					    jz_intc_base + (i * CHIP_SIZE), handle_level_irq);
+		gc = irq_alloc_generic_chip("INTC", 1, IRQ_BASE + (i * 32),
+					    jz_intc_base + (i * CHIP_SIZE),
+					    handle_level_irq);
 
 		gc->wake_enabled = IRQ_MSK(32);
 
@@ -121,7 +127,7 @@ static int __init jz47xx_intc_of_init(struct device_node *node, unsigned num_chi
 		irq_setup_generic_chip(gc, IRQ_MSK(32), 0, 0, IRQ_NOPROBE | IRQ_LEVEL);
 	}
 
-	domain = irq_domain_add_legacy(node, num_chips * 32, JZ4740_IRQ_BASE, 0,
+	domain = irq_domain_add_legacy(node, num_chips * 32, IRQ_BASE, 0,
 				       &irq_domain_simple_ops, NULL);
 	if (!domain)
 		pr_warn("unable to register IRQ domain\n");
