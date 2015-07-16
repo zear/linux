@@ -28,7 +28,7 @@
 
 #include <asm/mach-jz4740/base.h>
 
-#include "irq.h"
+#include "irq-jz4740.h"
 
 #define JZ4740_GPIO_BASE_A (32*0)
 #define JZ4740_GPIO_BASE_B (32*1)
