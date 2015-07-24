@@ -22,6 +22,7 @@
 
 #include <linux/clk.h>
 #include <linux/clockchips.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/sched.h>
@@ -67,7 +68,7 @@ static irqreturn_t mbox_handler(int irq, void *dev_id)
 	if (action & SMP_RESCHEDULE_YOURSELF)
 		scheduler_ipi();
 	if (action & SMP_CALL_FUNCTION)
-		smp_call_function_interrupt();
+		generic_smp_call_function_interrupt();
 
 	return IRQ_HANDLED;
 }
@@ -271,4 +272,12 @@ static struct plat_smp_ops jz4780_smp_ops = {
 void jz4780_smp_init(void)
 {
 	register_smp_ops(&jz4780_smp_ops);
+}
+
+unsigned long calibrate_delay_is_known(void)
+{
+	if (smp_processor_id() == 0)
+		return 0;
+
+	return loops_per_jiffy;
 }
