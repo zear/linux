@@ -18,8 +18,6 @@
 #include <linux/gpio/machine.h>
 
 #include <linux/input.h>
-#include <linux/gpio_keys.h>
-#include <linux/input/matrix_keypad.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/pinctrl/machine.h>
@@ -37,129 +35,6 @@
 #include <asm/mach-jz4740/platform.h>
 
 #include "clock.h"
-
-/* GPIOs */
-#define QI_LB60_GPIO_KEYOUT(x)		(JZ_GPIO_PORTC(10) + (x))
-#define QI_LB60_GPIO_KEYIN(x)		(JZ_GPIO_PORTD(18) + (x))
-#define QI_LB60_GPIO_KEYIN8		JZ_GPIO_PORTD(26)
-
-/* Keyboard*/
-
-#define KEY_QI_QI	KEY_F13
-#define KEY_QI_UPRED	KEY_RIGHTALT
-#define KEY_QI_VOLUP	KEY_VOLUMEUP
-#define KEY_QI_VOLDOWN	KEY_VOLUMEDOWN
-#define KEY_QI_FN	KEY_LEFTCTRL
-
-static const uint32_t qi_lb60_keymap[] = {
-	KEY(0, 0, KEY_F1),	/* S2 */
-	KEY(0, 1, KEY_F2),	/* S3 */
-	KEY(0, 2, KEY_F3),	/* S4 */
-	KEY(0, 3, KEY_F4),	/* S5 */
-	KEY(0, 4, KEY_F5),	/* S6 */
-	KEY(0, 5, KEY_F6),	/* S7 */
-	KEY(0, 6, KEY_F7),	/* S8 */
-
-	KEY(1, 0, KEY_Q),	/* S10 */
-	KEY(1, 1, KEY_W),	/* S11 */
-	KEY(1, 2, KEY_E),	/* S12 */
-	KEY(1, 3, KEY_R),	/* S13 */
-	KEY(1, 4, KEY_T),	/* S14 */
-	KEY(1, 5, KEY_Y),	/* S15 */
-	KEY(1, 6, KEY_U),	/* S16 */
-	KEY(1, 7, KEY_I),	/* S17 */
-	KEY(2, 0, KEY_A),	/* S18 */
-	KEY(2, 1, KEY_S),	/* S19 */
-	KEY(2, 2, KEY_D),	/* S20 */
-	KEY(2, 3, KEY_F),	/* S21 */
-	KEY(2, 4, KEY_G),	/* S22 */
-	KEY(2, 5, KEY_H),	/* S23 */
-	KEY(2, 6, KEY_J),	/* S24 */
-	KEY(2, 7, KEY_K),	/* S25 */
-	KEY(3, 0, KEY_ESC),	/* S26 */
-	KEY(3, 1, KEY_Z),	/* S27 */
-	KEY(3, 2, KEY_X),	/* S28 */
-	KEY(3, 3, KEY_C),	/* S29 */
-	KEY(3, 4, KEY_V),	/* S30 */
-	KEY(3, 5, KEY_B),	/* S31 */
-	KEY(3, 6, KEY_N),	/* S32 */
-	KEY(3, 7, KEY_M),	/* S33 */
-	KEY(4, 0, KEY_TAB),	/* S34 */
-	KEY(4, 1, KEY_CAPSLOCK),	/* S35 */
-	KEY(4, 2, KEY_BACKSLASH),	/* S36 */
-	KEY(4, 3, KEY_APOSTROPHE),	/* S37 */
-	KEY(4, 4, KEY_COMMA),	/* S38 */
-	KEY(4, 5, KEY_DOT),	/* S39 */
-	KEY(4, 6, KEY_SLASH),	/* S40 */
-	KEY(4, 7, KEY_UP),	/* S41 */
-	KEY(5, 0, KEY_O),	/* S42 */
-	KEY(5, 1, KEY_L),	/* S43 */
-	KEY(5, 2, KEY_EQUAL),	/* S44 */
-	KEY(5, 3, KEY_QI_UPRED),	/* S45 */
-	KEY(5, 4, KEY_SPACE),	/* S46 */
-	KEY(5, 5, KEY_QI_QI),	/* S47 */
-	KEY(5, 6, KEY_RIGHTCTRL),	/* S48 */
-	KEY(5, 7, KEY_LEFT),	/* S49 */
-	KEY(6, 0, KEY_F8),	/* S50 */
-	KEY(6, 1, KEY_P),	/* S51 */
-	KEY(6, 2, KEY_BACKSPACE),/* S52 */
-	KEY(6, 3, KEY_ENTER),	/* S53 */
-	KEY(6, 4, KEY_QI_VOLUP),	/* S54 */
-	KEY(6, 5, KEY_QI_VOLDOWN),	/* S55 */
-	KEY(6, 6, KEY_DOWN),	/* S56 */
-	KEY(6, 7, KEY_RIGHT),	/* S57 */
-
-	KEY(7, 0, KEY_LEFTSHIFT),	/* S58 */
-	KEY(7, 1, KEY_LEFTALT), /* S59 */
-	KEY(7, 2, KEY_QI_FN),	/* S60 */
-};
-
-static const struct matrix_keymap_data qi_lb60_keymap_data = {
-	.keymap		= qi_lb60_keymap,
-	.keymap_size	= ARRAY_SIZE(qi_lb60_keymap),
-};
-
-static const unsigned int qi_lb60_keypad_cols[] = {
-	QI_LB60_GPIO_KEYOUT(0),
-	QI_LB60_GPIO_KEYOUT(1),
-	QI_LB60_GPIO_KEYOUT(2),
-	QI_LB60_GPIO_KEYOUT(3),
-	QI_LB60_GPIO_KEYOUT(4),
-	QI_LB60_GPIO_KEYOUT(5),
-	QI_LB60_GPIO_KEYOUT(6),
-	QI_LB60_GPIO_KEYOUT(7),
-};
-
-static const unsigned int qi_lb60_keypad_rows[] = {
-	QI_LB60_GPIO_KEYIN(0),
-	QI_LB60_GPIO_KEYIN(1),
-	QI_LB60_GPIO_KEYIN(2),
-	QI_LB60_GPIO_KEYIN(3),
-	QI_LB60_GPIO_KEYIN(4),
-	QI_LB60_GPIO_KEYIN(5),
-	QI_LB60_GPIO_KEYIN(6),
-	QI_LB60_GPIO_KEYIN8,
-};
-
-static struct matrix_keypad_platform_data qi_lb60_pdata = {
-	.keymap_data = &qi_lb60_keymap_data,
-	.col_gpios	= qi_lb60_keypad_cols,
-	.row_gpios	= qi_lb60_keypad_rows,
-	.num_col_gpios	= ARRAY_SIZE(qi_lb60_keypad_cols),
-	.num_row_gpios	= ARRAY_SIZE(qi_lb60_keypad_rows),
-	.col_scan_delay_us	= 10,
-	.debounce_ms		= 10,
-	.wakeup			= 1,
-	.active_low		= 1,
-};
-
-static struct platform_device qi_lb60_keypad = {
-	.name		= "matrix-keypad",
-	.id		= -1,
-	.dev		= {
-		.platform_data = &qi_lb60_pdata,
-	},
-};
 
 /* Display */
 static struct fb_videomode qi_lb60_video_modes[] = {
@@ -236,30 +111,6 @@ static struct jz_battery_platform_data qi_lb60_battery_pdata = {
 	},
 };
 
-/* GPIO Key: power */
-static struct gpio_keys_button qi_lb60_gpio_keys_buttons[] = {
-	[0] = {
-		.code		= KEY_POWER,
-		.gpio		= JZ_GPIO_PORTD(29),
-		.active_low	= 1,
-		.desc		= "Power",
-		.wakeup		= 1,
-	},
-};
-
-static struct gpio_keys_platform_data qi_lb60_gpio_keys_data = {
-	.nbuttons = ARRAY_SIZE(qi_lb60_gpio_keys_buttons),
-	.buttons = qi_lb60_gpio_keys_buttons,
-};
-
-static struct platform_device qi_lb60_gpio_keys = {
-	.name = "gpio-keys",
-	.id =	-1,
-	.dev = {
-		.platform_data = &qi_lb60_gpio_keys_data,
-	}
-};
-
 /* charger */
 static char *qi_lb60_batteries[] = {
 	"battery",
@@ -282,11 +133,9 @@ static struct platform_device qi_lb60_charger_device = {
 };
 
 static struct platform_device *jz_platform_devices[] __initdata = {
-	&qi_lb60_keypad,
 	&qi_lb60_spigpio_device,
 	&jz4740_framebuffer_device,
 	&jz4740_adc_device,
-	&qi_lb60_gpio_keys,
 	&qi_lb60_charger_device,
 };
 
