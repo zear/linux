@@ -32,7 +32,6 @@
 
 #include <asm/mach-jz4740/gpio.h>
 #include <asm/mach-jz4740/jz4740_fb.h>
-#include <asm/mach-jz4740/jz4740_mmc.h>
 
 #include <linux/regulator/fixed.h>
 #include <linux/regulator/machine.h>
@@ -381,19 +380,6 @@ static struct platform_device qi_lb60_gpio_keys = {
 	}
 };
 
-static struct jz4740_mmc_platform_data qi_lb60_mmc_pdata = {
-	/* Intentionally left blank */
-};
-
-static struct gpiod_lookup_table qi_lb60_mmc_gpio_table = {
-	.dev_id = "jz4740-mmc.0",
-	.table = {
-		GPIO_LOOKUP("GPIOD", 0, "cd", GPIO_ACTIVE_HIGH),
-		GPIO_LOOKUP("GPIOD", 2, "power", GPIO_ACTIVE_LOW),
-		{ },
-	},
-};
-
 /* charger */
 static char *qi_lb60_batteries[] = {
 	"battery",
@@ -433,7 +419,6 @@ static struct gpiod_lookup_table qi_lb60_audio_gpio_table = {
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_udc_device,
 	&jz4740_udc_xceiv_device,
-	&jz4740_mmc_device,
 	&jz4740_nand_device,
 	&qi_lb60_keypad,
 	&qi_lb60_spigpio_device,
@@ -442,14 +427,9 @@ static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_i2s_device,
 	&jz4740_codec_device,
 	&jz4740_adc_device,
-	&jz4740_dma_device,
 	&qi_lb60_gpio_keys,
 	&qi_lb60_charger_device,
 	&qi_lb60_audio_device,
-};
-
-static unsigned long pin_cfg_bias_disable[] = {
-	    PIN_CONFIG_BIAS_DISABLE,
 };
 
 static struct pinctrl_map pin_map[] __initdata = {
@@ -462,16 +442,6 @@ static struct pinctrl_map pin_map[] __initdata = {
 			"10010000.jz4740-pinctrl", "lcd", "lcd-8bit"),
 	PIN_MAP_MUX_GROUP("jz4740-fb", PINCTRL_STATE_SLEEP,
 			"10010000.jz4740-pinctrl", "lcd", "lcd-no-pins"),
-
-	/* MMC pin configuration */
-	PIN_MAP_MUX_GROUP_DEFAULT("jz4740-mmc.0",
-			"10010000.jz4740-pinctrl", "mmc", "mmc-1bit"),
-	PIN_MAP_MUX_GROUP_DEFAULT("jz4740-mmc.0",
-			"10010000.jz4740-pinctrl", "mmc", "mmc-4bit"),
-	PIN_MAP_CONFIGS_PIN_DEFAULT("jz4740-mmc.0",
-			"10010000.jz4740-pinctrl", "PD0", pin_cfg_bias_disable),
-	PIN_MAP_CONFIGS_PIN_DEFAULT("jz4740-mmc.0",
-			"10010000.jz4740-pinctrl", "PD2", pin_cfg_bias_disable),
 };
 
 
@@ -480,12 +450,10 @@ static int __init qi_lb60_init_platform_devices(void)
 	jz4740_framebuffer_device.dev.platform_data = &qi_lb60_fb_pdata;
 	jz4740_nand_device.dev.platform_data = &qi_lb60_nand_pdata;
 	jz4740_adc_device.dev.platform_data = &qi_lb60_battery_pdata;
-	jz4740_mmc_device.dev.platform_data = &qi_lb60_mmc_pdata;
 
 	gpiod_add_lookup_table(&qi_lb60_audio_gpio_table);
 	gpiod_add_lookup_table(&qi_lb60_nand_gpio_table);
 	gpiod_add_lookup_table(&qi_lb60_spigpio_gpio_table);
-	gpiod_add_lookup_table(&qi_lb60_mmc_gpio_table);
 
 	spi_register_board_info(qi_lb60_spi_board_info,
 				ARRAY_SIZE(qi_lb60_spi_board_info));
