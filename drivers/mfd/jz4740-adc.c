@@ -176,6 +176,7 @@ static const struct mfd_cell jz4740_adc_cells[] = {
 	{
 		.id = 0,
 		.name = "jz4740-hwmon",
+		.of_compatible = "ingenic,jz4740-adc,aux",
 		.num_resources = ARRAY_SIZE(jz4740_aux_resources),
 		.resources = jz4740_aux_resources,
 
@@ -185,6 +186,7 @@ static const struct mfd_cell jz4740_adc_cells[] = {
 	{
 		.id = 1,
 		.name = "jz4740-battery",
+		.of_compatible = "ingenic,jz4740-adc,battery",
 		.num_resources = ARRAY_SIZE(jz4740_battery_resources),
 		.resources = jz4740_battery_resources,
 
@@ -308,11 +310,20 @@ static int jz4740_adc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id jz4740_adc_of_match[] = {
+	{ .compatible = "ingenic,jz4740-adc", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, jz4740_adc_of_match);
+#endif
+
 static struct platform_driver jz4740_adc_driver = {
 	.probe	= jz4740_adc_probe,
 	.remove = jz4740_adc_remove,
 	.driver = {
 		.name = "jz4740-adc",
+		.of_match_table = of_match_ptr(jz4740_adc_of_match),
 	},
 };
 
