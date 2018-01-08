@@ -45,3 +45,10 @@ config INGENIC_CGU_JZ4780
 	  If building for a JZ4780 SoC, you want to say Y here.
 
 endmenu
+
+config COMMON_CLK_JZ4770_ADC
+	tristate "Clock driver for the ADC in the Ingenic JZ4770 SoC"
+	depends on MIPS || COMPILE_TEST
+	help
+	  Add support for the configurable ADC clock found in the Ingenic
+	  JZ4770 SoC.
