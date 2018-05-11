@@ -21,7 +21,6 @@
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
-#include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/irq.h>
@@ -36,7 +35,6 @@
 #include <asm/cacheflush.h>
 
 #include <asm/mach-jz4740/dma.h>
-#include <asm/mach-jz4740/jz4740_mmc.h>
 
 #define JZ_REG_MMC_STRPCL	0x00
 #define JZ_REG_MMC_STATUS	0x04
@@ -134,7 +132,6 @@ struct jz4740_mmc_host_next {
 struct jz4740_mmc_host {
 	struct mmc_host *mmc;
 	struct platform_device *pdev;
-	struct jz4740_mmc_platform_data *pdata;
 	struct clk *clk;
 
 	enum jz4740_mmc_version version;
@@ -903,18 +900,16 @@ static void jz4740_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	switch (ios->power_mode) {
 	case MMC_POWER_UP:
 		jz4740_mmc_reset(host);
-		if (host->pdata && gpio_is_valid(host->pdata->gpio_power))
-			gpio_set_value(host->pdata->gpio_power,
-					!host->pdata->power_active_low);
+		if (!IS_ERR(mmc->supply.vmmc))
+			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, ios->vdd);
 		host->cmdat |= JZ_MMC_CMDAT_INIT;
 		clk_prepare_enable(host->clk);
 		break;
 	case MMC_POWER_ON:
 		break;
 	default:
-		if (host->pdata && gpio_is_valid(host->pdata->gpio_power))
-			gpio_set_value(host->pdata->gpio_power,
-					host->pdata->power_active_low);
+		if (!IS_ERR(mmc->supply.vmmc))
+			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
 		clk_disable_unprepare(host->clk);
 		break;
 	}
@@ -947,69 +942,6 @@ static const struct mmc_host_ops jz4740_mmc_ops = {
 	.enable_sdio_irq = jz4740_mmc_enable_sdio_irq,
 };
 
-static int jz4740_mmc_request_gpio(struct device *dev, int gpio,
-	const char *name, bool output, int value)
-{
-	int ret;
-
-	if (!gpio_is_valid(gpio))
-		return 0;
-
-	ret = gpio_request(gpio, name);
-	if (ret) {
-		dev_err(dev, "Failed to request %s gpio: %d\n", name, ret);
-		return ret;
-	}
-
-	if (output)
-		gpio_direction_output(gpio, value);
-	else
-		gpio_direction_input(gpio);
-
-	return 0;
-}
-
-static int jz4740_mmc_request_gpios(struct mmc_host *mmc,
-	struct platform_device *pdev)
-{
-	struct jz4740_mmc_platform_data *pdata = dev_get_platdata(&pdev->dev);
-	int ret = 0;
-
-	if (!pdata)
-		return 0;
-
-	if (!pdata->card_detect_active_low)
-		mmc->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
-	if (!pdata->read_only_active_low)
-		mmc->caps2 |= MMC_CAP2_RO_ACTIVE_HIGH;
-
-	if (gpio_is_valid(pdata->gpio_card_detect)) {
-		ret = mmc_gpio_request_cd(mmc, pdata->gpio_card_detect, 0);
-		if (ret)
-			return ret;
-	}
-
-	if (gpio_is_valid(pdata->gpio_read_only)) {
-		ret = mmc_gpio_request_ro(mmc, pdata->gpio_read_only);
-		if (ret)
-			return ret;
-	}
-
-	return jz4740_mmc_request_gpio(&pdev->dev, pdata->gpio_power,
-			"MMC read only", true, pdata->power_active_low);
-}
-
-static void jz4740_mmc_free_gpios(struct platform_device *pdev)
-{
-	struct jz4740_mmc_platform_data *pdata = dev_get_platdata(&pdev->dev);
-
-	if (!pdata)
-		return;
-
-	if (gpio_is_valid(pdata->gpio_power))
-		gpio_free(pdata->gpio_power);
-}
-
 static const struct of_device_id jz4740_mmc_of_match[] = {
 	{ .compatible = "ingenic,jz4740-mmc", .data = (void *) JZ_MMC_JZ4740 },
 	{ .compatible = "ingenic,jz4725b-mmc", .data = (void *)JZ_MMC_JZ4725B },
@@ -1024,9 +956,6 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	struct mmc_host *mmc;
 	struct jz4740_mmc_host *host;
 	const struct of_device_id *match;
-	struct jz4740_mmc_platform_data *pdata;
-
-	pdata = dev_get_platdata(&pdev->dev);
 
 	mmc = mmc_alloc_host(sizeof(struct jz4740_mmc_host), &pdev->dev);
 	if (!mmc) {
@@ -1035,28 +964,22 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	}
 
 	host = mmc_priv(mmc);
-	host->pdata = pdata;
 
 	match = of_match_device(jz4740_mmc_of_match, &pdev->dev);
-	if (match) {
+	if (match)
 		host->version = (enum jz4740_mmc_version)match->data;
-		ret = mmc_of_parse(mmc);
-		if (ret) {
-			if (ret != -EPROBE_DEFER)
-				dev_err(&pdev->dev,
-					"could not parse of data: %d\n", ret);
-			goto err_free_host;
-		}
-	} else {
-		/* JZ4740 should be the only one using legacy probe */
+	else
 		host->version = JZ_MMC_JZ4740;
-		mmc->caps |= MMC_CAP_SDIO_IRQ;
-		if (!(pdata && pdata->data_1bit))
-			mmc->caps |= MMC_CAP_4_BIT_DATA;
-		ret = jz4740_mmc_request_gpios(mmc, pdev);
-		if (ret)
-			goto err_free_host;
+
+	ret = mmc_of_parse(mmc); /* not DT only (works with device properties) */
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"could not parse of data: %d\n", ret);
+		goto err_free_host;
 	}
+
+	mmc_regulator_get_supply(mmc);
 
 	host->irq = platform_get_irq(pdev, 0);
 	if (host->irq < 0) {
@@ -1104,7 +1027,7 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 			dev_name(&pdev->dev), host);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request irq: %d\n", ret);
-		goto err_free_gpios;
+		goto err_free_host;
 	}
 
 	jz4740_mmc_clock_disable(host);
@@ -1135,8 +1058,6 @@ err_release_dma:
 		jz4740_mmc_release_dma_channels(host);
 err_free_irq:
 	free_irq(host->irq, host);
-err_free_gpios:
-	jz4740_mmc_free_gpios(pdev);
 err_free_host:
 	mmc_free_host(mmc);
 
@@ -1154,8 +1075,6 @@ static int jz4740_mmc_remove(struct platform_device *pdev)
 	mmc_remove_host(host->mmc);
 
 	free_irq(host->irq, host);
-
-	jz4740_mmc_free_gpios(pdev);
 
 	if (host->use_dma)
 		jz4740_mmc_release_dma_channels(host);
