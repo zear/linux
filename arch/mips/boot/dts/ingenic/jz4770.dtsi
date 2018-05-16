@@ -432,6 +432,23 @@
 		clock-names = "lcd_pclk";
 	};
 
+	vpu: cpu@132a0000 {
+		compatible = "ingenic,jz4770-vpu-rproc";
+
+		reg = <0x132a0000 0x20 /* AUX */
+		       0x132b0000 0x4000 /* TCSM0 */
+		       0x132c0000 0xc000 /* TCSM1 */
+		       0x132f0000 0x7000 /* SRAM */
+		>;
+		reg-names = "aux", "tcsm0", "tcsm1", "sram";
+
+		clocks = <&cgu JZ4770_CLK_AUX>, <&cgu JZ4770_CLK_VPU>;
+		clock-names = "aux", "vpu";
+
+		interrupt-parent = <&cpuintc>;
+		interrupts = <3>;
+	};
+
 	dmac0: dma-controller@13420000 {
 		compatible = "ingenic,jz4770-dma";
 		reg = <0x13420000 0xC0
