@@ -293,8 +293,8 @@ static int jz_battery_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&jz_battery->work, jz_battery_work);
 
-	ret = request_irq(jz_battery->irq, jz_battery_irq_handler, 0, pdev->name,
-			jz_battery);
+	ret = devm_request_irq(&pdev->dev, jz_battery->irq,
+			jz_battery_irq_handler, 0, pdev->name, jz_battery);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request irq %d\n", ret);
 		return ret;
@@ -302,7 +302,8 @@ static int jz_battery_probe(struct platform_device *pdev)
 	disable_irq(jz_battery->irq);
 
 	if (gpio_is_valid(pdata->gpio_charge)) {
-		ret = gpio_request(pdata->gpio_charge, dev_name(&pdev->dev));
+		ret = devm_gpio_request(&pdev->dev, pdata->gpio_charge,
+				dev_name(&pdev->dev));
 		if (ret) {
 			dev_err(&pdev->dev, "charger state gpio request failed.\n");
 			goto err_free_irq;
@@ -316,13 +317,14 @@ static int jz_battery_probe(struct platform_device *pdev)
 		jz_battery->charge_irq = gpio_to_irq(pdata->gpio_charge);
 
 		if (jz_battery->charge_irq >= 0) {
-			ret = request_irq(jz_battery->charge_irq,
+			ret = devm_request_irq(&pdev->dev,
+				    jz_battery->charge_irq,
 				    jz_battery_charge_irq,
 				    IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				    dev_name(&pdev->dev), jz_battery);
 			if (ret) {
 				dev_err(&pdev->dev, "Failed to request charge irq: %d\n", ret);
-				goto err_free_gpio;
+				return ret;
 			}
 		}
 	} else {
@@ -335,45 +337,18 @@ static int jz_battery_probe(struct platform_device *pdev)
 	else
 		jz4740_adc_set_config(pdev->dev.parent, JZ_ADC_CONFIG_BAT_MB, 0);
 
-	jz_battery->battery = power_supply_register(&pdev->dev, battery_desc,
-							&psy_cfg);
+	jz_battery->battery = devm_power_supply_register(&pdev->dev,
+		    battery_desc, &psy_cfg);
 	if (IS_ERR(jz_battery->battery)) {
 		dev_err(&pdev->dev, "power supply battery register failed.\n");
-		ret = PTR_ERR(jz_battery->battery);
-		goto err_free_charge_irq;
+		return PTR_ERR(jz_battery->battery);
 	}
 
 	platform_set_drvdata(pdev, jz_battery);
 	schedule_delayed_work(&jz_battery->work, 0);
 
-	return 0;
-
-err_free_charge_irq:
-	if (jz_battery->charge_irq >= 0)
-		free_irq(jz_battery->charge_irq, jz_battery);
-err_free_gpio:
-	if (gpio_is_valid(pdata->gpio_charge))
-		gpio_free(jz_battery->pdata->gpio_charge);
-err_free_irq:
-	free_irq(jz_battery->irq, jz_battery);
-	return ret;
-}
-
-static int jz_battery_remove(struct platform_device *pdev)
-{
-	struct jz_battery *jz_battery = platform_get_drvdata(pdev);
-
-	cancel_delayed_work_sync(&jz_battery->work);
-
-	if (gpio_is_valid(jz_battery->pdata->gpio_charge)) {
-		if (jz_battery->charge_irq >= 0)
-			free_irq(jz_battery->charge_irq, jz_battery);
-		gpio_free(jz_battery->pdata->gpio_charge);
-	}
-
-	power_supply_unregister(jz_battery->battery);
-
-	free_irq(jz_battery->irq, jz_battery);
+	devm_add_action(&pdev->dev, (void (*)(void *))cancel_delayed_work_sync,
+				&jz_battery->work);
 
 	return 0;
 }
@@ -410,7 +385,6 @@ static const struct dev_pm_ops jz_battery_pm_ops = {
 
 static struct platform_driver jz_battery_driver = {
 	.probe		= jz_battery_probe,
-	.remove		= jz_battery_remove,
 	.driver = {
 		.name = "jz4740-battery",
 		.pm = JZ_BATTERY_PM_OPS,
