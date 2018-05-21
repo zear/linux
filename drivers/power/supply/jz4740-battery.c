@@ -417,11 +417,18 @@ static const struct dev_pm_ops jz_battery_pm_ops = {
 #define JZ_BATTERY_PM_OPS NULL
 #endif
 
+static const struct of_device_id jz_battery_of_match[] = {
+	{ .compatible = "ingenic,jz4740-battery", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, jz_battery_of_match);
+
 static struct platform_driver jz_battery_driver = {
 	.probe		= jz_battery_probe,
 	.driver = {
 		.name = "jz4740-battery",
 		.pm = JZ_BATTERY_PM_OPS,
+		.of_match_table = of_match_ptr(jz_battery_of_match),
 	},
 };
 
