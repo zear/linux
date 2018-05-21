@@ -48,7 +48,7 @@ struct jz_battery {
 
 	struct completion read_completion;
 
-	struct power_supply *battery;
+	struct power_supply *battery, *charger;
 	struct power_supply_desc battery_desc;
 	struct delayed_work work;
 
@@ -137,7 +137,11 @@ static int jz_battery_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = jz_battery->status;
+		if (jz_battery->charger)
+			return power_supply_get_property(jz_battery->charger,
+						POWER_SUPPLY_PROP_STATUS, val);
+		else
+			val->intval = jz_battery->status;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = jz_battery->pdata->info.technology;
@@ -335,10 +339,16 @@ static int jz_battery_probe(struct platform_device *pdev)
 	}
 	disable_irq(jz_battery->irq);
 
-	jz_battery->gpio_charge = devm_gpiod_get_optional(&pdev->dev,
-				"charge", GPIOD_IN);
-	if (IS_ERR(jz_battery->gpio_charge))
-		return PTR_ERR(jz_battery->gpio_charge);
+	jz_battery->charger = power_supply_get_by_name("charger");
+	if (jz_battery->charger) {
+		devm_add_action(dev,
+			    (void (*)(void *))power_supply_put, charger);
+	} else {
+		jz_battery->gpio_charge = devm_gpiod_get_optional(&pdev->dev,
+					"charge", GPIOD_IN);
+		if (IS_ERR(jz_battery->gpio_charge))
+			return PTR_ERR(jz_battery->gpio_charge);
+	}
 
 	if (jz_battery->gpio_charge) {
 		jz_battery->charge_irq = gpiod_to_irq(pdata->gpio_charge);
