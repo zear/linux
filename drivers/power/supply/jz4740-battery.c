@@ -240,6 +240,34 @@ static void jz_battery_work(struct work_struct *work)
 	schedule_delayed_work(&jz_battery->work, interval);
 }
 
+static int jz_battery_read_info(struct device *dev,
+			struct power_supply_info *info)
+{
+	int ret;
+
+	ret = dev_property_read_string(dev, "ingenic,battery-name",
+				&info->name);
+	if (ret)
+		return ret;
+
+	ret = dev_property_read_u32(dev, "ingenic,max-uV",
+				&info->voltage_max_design);
+	if (ret)
+		return ret;
+
+	ret = dev_property_read_u32(dev, "ingenic,min-uV",
+				&info->voltage_min_design);
+	if (ret)
+		return ret;
+
+	ret = dev_property_read_u32(dev, "ingenic,technology",
+				&info->technology);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int jz_battery_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -250,8 +278,13 @@ static int jz_battery_probe(struct platform_device *pdev)
 	struct resource *mem;
 
 	if (!pdata) {
-		dev_err(&pdev->dev, "No platform_data supplied\n");
-		return -ENXIO;
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+
+		ret = jz_battery_read_info(&pdev->dev, &pdata.info);
+		if (ret)
+			return ret;
 	}
 
 	jz_battery = devm_kzalloc(&pdev->dev, sizeof(*jz_battery), GFP_KERNEL);
