@@ -23,7 +23,7 @@
 
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/mfd/core.h>
 #include <linux/power_supply.h>
 
@@ -35,6 +35,8 @@ struct jz_battery {
 	struct platform_device *pdev;
 
 	void __iomem *base;
+
+	struct gpio_desc *gpio_charge;
 
 	int irq;
 	int charge_irq;
@@ -193,9 +195,8 @@ static void jz_battery_update(struct jz_battery *jz_battery)
 	bool has_changed = false;
 	int is_charging;
 
-	if (gpio_is_valid(jz_battery->pdata->gpio_charge)) {
-		is_charging = gpio_get_value(jz_battery->pdata->gpio_charge);
-		is_charging ^= jz_battery->pdata->gpio_charge_active_low;
+	if (jz_battery->gpio_charge) {
+		is_charging = gpiod_get_value(jz_battery->gpio_charge);
 		if (is_charging)
 			status = POWER_SUPPLY_STATUS_CHARGING;
 		else
@@ -301,34 +302,24 @@ static int jz_battery_probe(struct platform_device *pdev)
 	}
 	disable_irq(jz_battery->irq);
 
-	if (gpio_is_valid(pdata->gpio_charge)) {
-		ret = devm_gpio_request(&pdev->dev, pdata->gpio_charge,
-				dev_name(&pdev->dev));
-		if (ret) {
-			dev_err(&pdev->dev, "charger state gpio request failed.\n");
-			goto err_free_irq;
-		}
-		ret = gpio_direction_input(pdata->gpio_charge);
-		if (ret) {
-			dev_err(&pdev->dev, "charger state gpio set direction failed.\n");
-			goto err_free_gpio;
-		}
+	jz_battery->gpio_charge = devm_gpiod_get_optional(&pdev->dev,
+				"charge", GPIOD_IN);
+	if (IS_ERR(jz_battery->gpio_charge))
+		return PTR_ERR(jz_battery->gpio_charge);
 
-		jz_battery->charge_irq = gpio_to_irq(pdata->gpio_charge);
+	if (jz_battery->gpio_charge) {
+		jz_battery->charge_irq = gpiod_to_irq(pdata->gpio_charge);
 
-		if (jz_battery->charge_irq >= 0) {
-			ret = devm_request_irq(&pdev->dev,
+		ret = devm_request_irq(&pdev->dev,
 				    jz_battery->charge_irq,
 				    jz_battery_charge_irq,
 				    IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				    dev_name(&pdev->dev), jz_battery);
-			if (ret) {
-				dev_err(&pdev->dev, "Failed to request charge irq: %d\n", ret);
-				return ret;
-			}
+		if (ret) {
+			dev_err(&pdev->dev,
+				    "Failed to request charge irq: %d\n", ret);
+			return ret;
 		}
-	} else {
-		jz_battery->charge_irq = -1;
 	}
 
 	if (jz_battery->pdata->info.voltage_max_design <= 2500000)
