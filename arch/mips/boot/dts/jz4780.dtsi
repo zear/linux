@@ -219,6 +219,15 @@
 				bias-pull-down;
 			};
 
+			pinfunc_spi0: spi0 {
+				pins_spi0_data: spi0_data {
+					ingenic,pins = <&gpe 14 0 &pincfg_pull_up  /* miso */
+							&gpe 15 0 &pincfg_nobias   /* sck */
+							&gpe 16 0 &pincfg_nobias   /* cs0 */
+							&gpe 17 0 &pincfg_nobias   /* mosi */
+							&gpe 18 0 &pincfg_nobias>; /* cs1 */
+				};
+			};
 			pinfunc_uart0: uart0 {
 				pins_uart0_data: uart0-data {
 					ingenic,pins = <&gpf  0 0 &pincfg_pull_up  /* rxd */
@@ -430,17 +439,24 @@
 			};
 		};
 
-		spi_gpio {
-			compatible = "spi-gpio";
+		spi0: spi@10043000 {
+			compatible = "ingenic,ingenic-spi";
+			reg = <0x10043000 0x1c>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			num-chipselects = <2>;
+			clocks = <&cgu JZ4780_CLK_SSI>;
+			clock-names = "spi";
+			assigned-clocks =
+				<&cgu JZ4780_CLK_SSIPLL>;
+			assigned-clock-parents =
+				<&cgu JZ4780_CLK_MPLL>;
+			assigned-clock-rates =
+				<12000000>;
 
-			gpio-miso = <&gpe 14 0>;
-			gpio-sck = <&gpe 15 0>;
-			gpio-mosi = <&gpe 17 0>;
-			cs-gpios = <&gpe 16 0
-					&gpe 18 0>;
+			num-cs = <2>;
+			cs-gpios = <&gpe 16 0>, <&gpe 18 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pins_spi0_data>;
 
 			spidev@0 {
 				compatible = "spidev";
