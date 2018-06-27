@@ -161,7 +161,7 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 	 * Conversion of tBP and tAW cycle counts to values supported by the
 	 * hardware (round up to the next supported value).
 	 */
-	static const uint32_t convert_tBP_tAW[] = {
+	static const u8 convert_tBP_tAW[] = {
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 
 		/* 11 - 12 -> 12 cycles */
@@ -232,7 +232,7 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 			return false;
 		}
 
-		smcr |= convert_tBP_tAW[cycles] << NEMC_SMCR_TBP_SHIFT;
+		smcr |= (u32)convert_tBP_tAW[cycles] << NEMC_SMCR_TBP_SHIFT;
 	}
 
 	if (of_property_read_u32(node, "ingenic,nemc-tAW", &val) == 0) {
@@ -244,7 +244,7 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 			return false;
 		}
 
-		smcr |= convert_tBP_tAW[cycles] << NEMC_SMCR_TAW_SHIFT;
+		smcr |= (u32)convert_tBP_tAW[cycles] << NEMC_SMCR_TAW_SHIFT;
 	}
 
 	if (of_property_read_u32(node, "ingenic,nemc-tSTRV", &val) == 0) {
