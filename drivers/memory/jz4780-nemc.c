@@ -44,9 +44,15 @@
 #define NEMC_NFCSR_NFCEn(n)	BIT((((n) - 1) << 1) + 1)
 #define NEMC_NFCSR_TNFEn(n)	BIT(16 + (n) - 1)
 
+enum jz_version {
+	ID_JZ4725B,
+	ID_JZ4780,
+};
+
 struct jz4780_nemc {
 	spinlock_t lock;
 	struct device *dev;
+	enum jz_version version;
 	void __iomem *base;
 	struct clk *clk;
 	uint32_t clk_period;
@@ -180,6 +186,11 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 		15, 15, 15, 15, 15, 15
 	};
 
+	static const uint8_t jz4780_nemc_tas_tah_cycles_max[] = {
+		[ID_JZ4725B] = 7,
+		[ID_JZ4780] = 15,
+	};
+
 	smcr = readl(nemc->base + NEMC_SMCRn(bank));
 	smcr &= ~NEMC_SMCR_SMT;
 
@@ -202,7 +213,7 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 	if (of_property_read_u32(node, "ingenic,nemc-tAS", &val) == 0) {
 		smcr &= ~NEMC_SMCR_TAS_MASK;
 		cycles = jz4780_nemc_ns_to_cycles(nemc, val);
-		if (cycles > 15) {
+		if (cycles > jz4780_nemc_tas_tah_cycles_max[nemc->version]) {
 			dev_err(nemc->dev, "tAS %u is too high (%u cycles)\n",
 				val, cycles);
 			return false;
@@ -214,7 +225,7 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 	if (of_property_read_u32(node, "ingenic,nemc-tAH", &val) == 0) {
 		smcr &= ~NEMC_SMCR_TAH_MASK;
 		cycles = jz4780_nemc_ns_to_cycles(nemc, val);
-		if (cycles > 15) {
+		if (cycles > jz4780_nemc_tas_tah_cycles_max[nemc->version]) {
 			dev_err(nemc->dev, "tAH %u is too high (%u cycles)\n",
 				val, cycles);
 			return false;
@@ -263,9 +274,17 @@ static bool jz4780_nemc_configure_bank(struct jz4780_nemc *nemc,
 	return true;
 }
 
+static const struct of_device_id jz4780_nemc_dt_match[] = {
+	{ .compatible = "ingenic,jz4725b-nemc", .data = (void *)ID_JZ4725B, },
+	{ .compatible = "ingenic,jz4780-nemc", .data = (void *)ID_JZ4780, },
+	{},
+};
+
 static int jz4780_nemc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *of_id = of_match_device(
+			jz4780_nemc_dt_match, dev);
 	struct jz4780_nemc *nemc;
 	struct resource *res;
 	struct device_node *child;
@@ -280,6 +299,7 @@ static int jz4780_nemc_probe(struct platform_device *pdev)
 
 	spin_lock_init(&nemc->lock);
 	nemc->dev = dev;
+	nemc->version = (enum jz_version)of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	nemc->base = devm_ioremap_resource(dev, res);
@@ -369,11 +389,6 @@ static int jz4780_nemc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(nemc->clk);
 	return 0;
 }
-
-static const struct of_device_id jz4780_nemc_dt_match[] = {
-	{ .compatible = "ingenic,jz4780-nemc" },
-	{},
-};
 
 static struct platform_driver jz4780_nemc_driver = {
 	.probe		= jz4780_nemc_probe,
