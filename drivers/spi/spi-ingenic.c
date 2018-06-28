@@ -26,6 +26,7 @@
 #define REG_SSICR1_PHA		BIT(1)
 #define REG_SSICR1_POL		BIT(0)
 
+#define REG_SSISR_END		BIT(7)
 #define REG_SSISR_TFF		BIT(5)
 #define REG_SSISR_RFE		BIT(4)
 
@@ -46,6 +47,16 @@ static const struct of_device_id spi_ingenic_of_match[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, spi_ingenic_of_match);
+
+static void spi_ingenic_wait(struct ingenic_spi *spi, unsigned long mask)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(5);
+
+	do {
+		if (!(readl(spi->base + REG_SSISR) & mask))
+			return;
+	} while (!time_after(jiffies, timeout));
+}
 
 static void spi_ingenic_set_cs(struct spi_device *spi, bool enable)
 {
@@ -87,14 +98,7 @@ static int spi_ingenic_transfer_one(struct spi_master *master,
 
 	for (i = 0; i < count; ++i) {
 		if (transfer->tx_buf) {
-			for (;;) {
-				u32 status = readl(ingenic_spi->base + REG_SSISR);
-
-				if (!(status & REG_SSISR_TFF))
-					break;
-
-				udelay(1);
-			}
+			spi_ingenic_wait(ingenic_spi, REG_SSISR_TFF);
 
 			val = (bits <= 8) ?
 				((u8 *)transfer->tx_buf)[i] :
@@ -103,14 +107,7 @@ static int spi_ingenic_transfer_one(struct spi_master *master,
 		}
 
 		if (transfer->rx_buf) {
-			for (;;) {
-				u32 status = readl(ingenic_spi->base + REG_SSISR);
-
-				if (!(status & REG_SSISR_RFE))
-					break;
-
-				udelay(1);
-			}
+			spi_ingenic_wait(ingenic_spi, REG_SSISR_RFE);
 
 			val = readl(ingenic_spi->base + REG_SSIDR);
 			if (bits <= 8)
@@ -119,6 +116,8 @@ static int spi_ingenic_transfer_one(struct spi_master *master,
 				((u16 *)transfer->rx_buf)[i] = val;
 		}
 	}
+
+	spi_ingenic_wait(ingenic_spi, REG_SSISR_END);
 
 	return 0;
 }
