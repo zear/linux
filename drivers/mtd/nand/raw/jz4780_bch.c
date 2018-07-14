@@ -120,10 +120,12 @@ void jz4780_bch_release(struct jz4780_bch *bch)
 EXPORT_SYMBOL(jz4780_bch_release);
 
 static const struct jz4780_bch_ops * const jz4780_bch_ops[] = {
+	[ID_JZ4725B] = &jz4780_bch_jz4725b_ops,
 	[ID_JZ4780] = &jz4780_bch_jz4780_ops,
 };
 
 static const struct of_device_id jz4780_bch_dt_match[] = {
+	{ .compatible = "ingenic,jz4725b-bch", .data = (void *)ID_JZ4725B, },
 	{ .compatible = "ingenic,jz4780-bch", .data = (void *)ID_JZ4780, },
 	{},
 };
