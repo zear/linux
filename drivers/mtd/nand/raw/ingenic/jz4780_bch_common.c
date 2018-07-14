@@ -156,6 +156,7 @@ static int jz4780_bch_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id jz4780_bch_dt_match[] = {
+	{ .compatible = "ingenic,jz4725b-bch", .data = &jz4780_bch_jz4725b_ops},
 	{ .compatible = "ingenic,jz4780-bch", .data = &jz4780_bch_jz4780_ops },
 	{},
 };
