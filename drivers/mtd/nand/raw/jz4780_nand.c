@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -30,11 +31,20 @@
 #define DRV_NAME	"jz4780-nand"
 
 #define OFFSET_DATA	0x00000000
-#define OFFSET_CMD	0x00400000
-#define OFFSET_ADDR	0x00800000
+
+#define JZ4780_OFFSET_CMD	0x00400000
+#define JZ4780_OFFSET_ADDR	0x00800000
+
+#define JZ4725B_OFFSET_CMD	0x00008000
+#define JZ4725B_OFFSET_ADDR	0x00010000
 
 /* Command delay when there is no R/B pin. */
 #define RB_DELAY_US	100
+
+enum jz_version {
+	ID_JZ4725B,
+	ID_JZ4780,
+};
 
 struct jz4780_nand_cs {
 	unsigned int bank;
@@ -43,6 +53,7 @@ struct jz4780_nand_cs {
 
 struct jz4780_nand_controller {
 	struct device *dev;
+	enum jz_version version;
 	struct jz4780_bch *bch;
 	struct nand_controller controller;
 	unsigned int num_banks;
@@ -103,10 +114,17 @@ static void jz4780_nand_cmd_ctrl(struct nand_chip *chip, int cmd,
 	if (cmd == NAND_CMD_NONE)
 		return;
 
-	if (ctrl & NAND_ALE)
-		writeb(cmd, cs->base + OFFSET_ADDR);
-	else if (ctrl & NAND_CLE)
-		writeb(cmd, cs->base + OFFSET_CMD);
+	if (nfc->version == ID_JZ4725B) {
+		if (ctrl & NAND_ALE)
+			writeb(cmd, cs->base + JZ4725B_OFFSET_ADDR);
+		else if (ctrl & NAND_CLE)
+			writeb(cmd, cs->base + JZ4725B_OFFSET_CMD);
+	} else {
+		if (ctrl & NAND_ALE)
+			writeb(cmd, cs->base + JZ4780_OFFSET_ADDR);
+		else if (ctrl & NAND_CLE)
+			writeb(cmd, cs->base + JZ4780_OFFSET_CMD);
+	}
 }
 
 static int jz4780_nand_dev_ready(struct nand_chip *chip)
@@ -339,8 +357,17 @@ static int jz4780_nand_init_chips(struct jz4780_nand_controller *nfc,
 	return 0;
 }
 
+static const struct of_device_id jz4780_nand_dt_match[] = {
+	{ .compatible = "ingenic,jz4725b-nand", .data = (void *)ID_JZ4725B },
+	{ .compatible = "ingenic,jz4780-nand",  .data = (void *)ID_JZ4780  },
+	{},
+};
+MODULE_DEVICE_TABLE(of, jz4780_nand_dt_match);
+
 static int jz4780_nand_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *of_id = of_match_device(
+			jz4780_nand_dt_match, &pdev->dev);
 	struct device *dev = &pdev->dev;
 	unsigned int num_banks;
 	struct jz4780_nand_controller *nfc;
@@ -355,6 +382,11 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	nfc = devm_kzalloc(dev, struct_size(nfc, cs, num_banks), GFP_KERNEL);
 	if (!nfc)
 		return -ENOMEM;
+
+	if (of_id)
+		nfc->version = (enum jz_version)of_id->data;
+	else
+		nfc->version = ID_JZ4780; /* Default when not probed from DT */
 
 	/*
 	 * Check for BCH HW before we call nand_scan_ident, to prevent us from
@@ -392,12 +424,6 @@ static int jz4780_nand_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id jz4780_nand_dt_match[] = {
-	{ .compatible = "ingenic,jz4780-nand" },
-	{},
-};
-MODULE_DEVICE_TABLE(of, jz4780_nand_dt_match);
 
 static struct platform_driver jz4780_nand_driver = {
 	.probe		= jz4780_nand_probe,
