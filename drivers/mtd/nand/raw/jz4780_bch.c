@@ -60,8 +60,6 @@
 #define BCH_BHINT_UNCOR			BIT(1)
 #define BCH_BHINT_ERR			BIT(0)
 
-#define BCH_CLK_RATE			(200 * 1000 * 1000)
-
 /* Timeout for BCH calculation/correction. */
 #define BCH_TIMEOUT_US			100000
 
@@ -348,8 +346,6 @@ static int jz4780_bch_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to get clock: %ld\n", PTR_ERR(bch->clk));
 		return PTR_ERR(bch->clk);
 	}
-
-	clk_set_rate(bch->clk, BCH_CLK_RATE);
 
 	mutex_init(&bch->lock);
 
