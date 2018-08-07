@@ -1636,6 +1636,7 @@ config JZ4740_WDT
 	depends on MIPS
 	depends on COMMON_CLK
 	select WATCHDOG_CORE
+	select INGENIC_TCU
 	help
 	  Hardware driver for the built-in watchdog timer on Ingenic jz4740 SoCs.
 
