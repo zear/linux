@@ -155,7 +155,23 @@
 		};
 	};
 
+	spi0: spi@10043000 {
+		compatible = "ingenic,ingenic-spi";
+		reg = <0x10043000 0x1c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&cgu JZ4780_CLK_SSI>;
+		clock-names = "spi";
+
+		dmas = <&dma JZ4780_DMA_SSI0_TX 0xffffffff
+			&dma JZ4780_DMA_SSI0_RX 0xffffffff>;
+		dma-names = "tx", "rx";
+
+		status = "disabled";
+	};
+
 	spi_gpio {
+		status = "disabled";
 		compatible = "spi-gpio";
 		#address-cells = <1>;
 		#size-cells = <0>;

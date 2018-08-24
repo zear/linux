@@ -86,6 +86,20 @@
 	pinctrl-0 = <&pins_uart4>;
 };
 
+&spi0 {
+	status = "okay";
+
+	assigned-clocks =
+		<&cgu JZ4780_CLK_SSIPLL>, <&cgu JZ4780_CLK_SSI>;
+	assigned-clock-parents =
+		<&cgu JZ4780_CLK_EXCLK>, <&cgu JZ4780_CLK_SSIPLL>;
+	assigned-clock-rates =
+		<12000000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_spi0>;
+};
+
 &nemc {
 	status = "okay";
 
@@ -236,5 +250,18 @@
 		function = "mmc1";
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
 		bias-disable;
+	};
+
+
+	pins_spi0: spi0 {
+		spi0 {
+			function = "spi0";
+			groups = "spi0";
+		};
+
+		spi0-bias {
+			pins = "PE14";
+			bias-pull-up;
+		};
 	};
 };
