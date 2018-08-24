@@ -282,6 +282,12 @@ config SPI_IMX
 	  This enables using the Freescale i.MX SPI controllers in master
 	  mode.
 
+config SPI_INGENIC
+	tristate "Ingenic JZ47xx SoCs SPI controller"
+	depends on MACH_JZ4780 || COMPILE_TEST
+	help
+	  This enables support for the Ingenic JZ47xx SoCs SPI controller.
+
 config SPI_JCORE
 	tristate "J-Core SPI Master"
 	depends on OF && (SUPERH || COMPILE_TEST)
