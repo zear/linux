@@ -213,6 +213,7 @@ static const u32 jz4770_pull_downs[6] = {
 	0x00000000, 0x000f0c03, 0x00000000, 0x0000b000, 0x00000483, 0x00580ff0,
 };
 
+static int jz4770_spi0_pins[] = { 0x8e, 0x8f, 0x90, 0x91, 0x92, };
 static int jz4770_uart0_data_pins[] = { 0xa0, 0xa3, };
 static int jz4770_uart0_hwflow_pins[] = { 0xa1, 0xa2, };
 static int jz4770_uart1_data_pins[] = { 0x7a, 0x7c, };
@@ -268,6 +269,7 @@ static int jz4770_pwm_pwm5_pins[] = { 0x85, };
 static int jz4770_pwm_pwm6_pins[] = { 0x6a, };
 static int jz4770_pwm_pwm7_pins[] = { 0x6b, };
 
+static int jz4770_spi0_funcs[] = { 0, 0, 0, 0, 0 };
 static int jz4770_uart0_data_funcs[] = { 0, 0, };
 static int jz4770_uart0_hwflow_funcs[] = { 0, 0, };
 static int jz4770_uart1_data_funcs[] = { 0, 0, };
@@ -319,6 +321,7 @@ static int jz4770_pwm_pwm6_funcs[] = { 0, };
 static int jz4770_pwm_pwm7_funcs[] = { 0, };
 
 static const struct group_desc jz4770_groups[] = {
+	INGENIC_PIN_GROUP("spi0", jz4770_spi0),
 	INGENIC_PIN_GROUP("uart0-data", jz4770_uart0_data),
 	INGENIC_PIN_GROUP("uart0-hwflow", jz4770_uart0_hwflow),
 	INGENIC_PIN_GROUP("uart1-data", jz4770_uart1_data),
@@ -367,6 +370,7 @@ static const struct group_desc jz4770_groups[] = {
 	INGENIC_PIN_GROUP("pwm7", jz4770_pwm_pwm7),
 };
 
+static const char *jz4770_spi0_groups[] = { "spi0", };
 static const char *jz4770_uart0_groups[] = { "uart0-data", "uart0-hwflow", };
 static const char *jz4770_uart1_groups[] = { "uart1-data", "uart1-hwflow", };
 static const char *jz4770_uart2_groups[] = { "uart2-data", "uart2-hwflow", };
@@ -401,6 +405,7 @@ static const char *jz4770_pwm6_groups[] = { "pwm6", };
 static const char *jz4770_pwm7_groups[] = { "pwm7", };
 
 static const struct function_desc jz4770_functions[] = {
+	{ "spi0", jz4770_spi0_groups, ARRAY_SIZE(jz4770_spi0_groups), },
 	{ "uart0", jz4770_uart0_groups, ARRAY_SIZE(jz4770_uart0_groups), },
 	{ "uart1", jz4770_uart1_groups, ARRAY_SIZE(jz4770_uart1_groups), },
 	{ "uart2", jz4770_uart2_groups, ARRAY_SIZE(jz4770_uart2_groups), },
