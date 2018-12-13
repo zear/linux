@@ -24,6 +24,17 @@
 		compatible = "simple-bus";
 		ranges = <>;
 
+		backlight {
+			compatible = "pwm-backlight";
+			pwms = <&pwm 3 40000 0>;
+
+			brightness-levels = <0 16 32 48 64 80 96 112 128 144 160 176 192 208 224 240 255>;
+			default-brightness-level = <12>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&pins_pwm3>;
+		};
+
 		gpio-keys {
 			compatible = "gpio-keys";
 			#address-cells = <1>;
@@ -122,6 +133,13 @@
 		function = "nand";
 		groups = "nand-cs1", "nand-cle-ale", "nand-fre-fwe";
 	};
+
+	pins_pwm3: pwm3 {
+		function = "pwm3";
+		groups = "pwm3";
+		bias-disable;
+	};
+
 };
 
 &mmc0 {
@@ -138,6 +156,8 @@
 };
 
 &uart {
+	status = "disabled";
+
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_uart>;
 };
