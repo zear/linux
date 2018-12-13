@@ -92,7 +92,7 @@
 			button@8 {
 				label = "Start button";
 				linux,code = <KEY_ENTER>;
-				gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
+				gpios = <&gpd 17 GPIO_ACTIVE_LOW>;
 				debounce-interval = <10>;
 			};
 		};
