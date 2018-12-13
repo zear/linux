@@ -225,6 +225,8 @@ config PWM_JZ4740
 	tristate "Ingenic JZ47xx PWM support"
 	depends on MIPS
 	select REGMAP
+	depends on COMMON_CLK
+	select INGENIC_TCU
 	help
 	  Generic PWM framework driver for Ingenic JZ47xx based
 	  machines.
