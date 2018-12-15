@@ -240,33 +240,37 @@ static void jz_battery_work(struct work_struct *work)
 	schedule_delayed_work(&jz_battery->work, interval);
 }
 
+#ifdef CONFIG_OF
 static int jz_battery_read_info(struct device *dev,
-			struct power_supply_info *info)
+				struct power_supply_info *info)
 {
+	struct device_node *node = dev->of_node;
 	int ret;
 
-	ret = dev_property_read_string(dev, "ingenic,battery-name",
-				&info->name);
+	if (!node) {
+		dev_err(dev, "No devicetree node supplied\n");
+		return -ENXIO;
+	}
+
+	ret = of_property_read_string(node, "battery-name", &info->name);
 	if (ret)
 		return ret;
 
-	ret = dev_property_read_u32(dev, "ingenic,max-uV",
-				&info->voltage_max_design);
+	ret = of_property_read_u32(node, "max-uV", &info->voltage_max_design);
 	if (ret)
 		return ret;
 
-	ret = dev_property_read_u32(dev, "ingenic,min-uV",
-				&info->voltage_min_design);
+	ret = of_property_read_u32(node, "min-uV", &info->voltage_min_design);
 	if (ret)
 		return ret;
 
-	ret = dev_property_read_u32(dev, "ingenic,technology",
-				&info->technology);
+	ret = of_property_read_u32(node, "technology", &info->technology);
 	if (ret)
 		return ret;
 
 	return 0;
 }
+#endif
 
 static int jz_battery_probe(struct platform_device *pdev)
 {
@@ -278,6 +282,7 @@ static int jz_battery_probe(struct platform_device *pdev)
 	struct resource *mem;
 
 	if (!pdata) {
+#ifdef CONFIG_OF
 		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
@@ -285,6 +290,10 @@ static int jz_battery_probe(struct platform_device *pdev)
 		ret = jz_battery_read_info(&pdev->dev, &pdata.info);
 		if (ret)
 			return ret;
+#else
+		dev_err(&pdev->dev, "No platform_data supplied\n");
+		return -ENXIO;
+#endif
 	}
 
 	jz_battery = devm_kzalloc(&pdev->dev, sizeof(*jz_battery), GFP_KERNEL);
@@ -413,11 +422,13 @@ static const struct dev_pm_ops jz_battery_pm_ops = {
 #define JZ_BATTERY_PM_OPS NULL
 #endif
 
+#ifdef CONFIG_OF
 static const struct of_device_id jz_battery_of_match[] = {
 	{ .compatible = "ingenic,jz4740-battery", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, jz_battery_of_match);
+#endif
 
 static struct platform_driver jz_battery_driver = {
 	.probe		= jz_battery_probe,
