@@ -484,6 +484,15 @@ config HTC_I2CPLD
 	  This device provides input and output GPIOs through an I2C
 	  interface to one or more sub-chips.
 
+config MFD_JZ4740_ADC
+	bool "Ingenic JZ4740 ADC core"
+	select MFD_CORE
+	select GENERIC_IRQ_CHIP
+	depends on MACH_JZ4740
+	help
+	  Say yes here if you want support for the ADC unit in the JZ4740 SoC.
+	  This driver is necessary for jz4740-battery and jz4740-hwmon driver.
+
 config MFD_INTEL_QUARK_I2C_GPIO
 	tristate "Intel Quark MFD I2C GPIO"
 	depends on PCI
@@ -623,15 +632,6 @@ config MFD_JANZ_CMODIO
 	  carrier board. This device is a PCI to MODULbus bridge which may
 	  host many different types of MODULbus daughterboards, including
 	  CAN and GPIO controllers.
-
-config MFD_JZ4740_ADC
-	bool "Janz JZ4740 ADC core"
-	select MFD_CORE
-	select GENERIC_IRQ_CHIP
-	depends on MACH_JZ4740
-	help
-	  Say yes here if you want support for the ADC unit in the JZ4740 SoC.
-	  This driver is necessary for jz4740-battery and jz4740-hwmon driver.
 
 config MFD_KEMPLD
 	tristate "Kontron module PLD device"
