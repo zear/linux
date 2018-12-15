@@ -151,6 +151,7 @@ EXPORT_SYMBOL_GPL(jz4740_adc_set_config);
 static struct resource jz4740_aux_resources[] = {
 	{
 		.start = JZ_ADC_IRQ_AUX,
+		.end   = JZ_ADC_IRQ_AUX,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
@@ -163,6 +164,7 @@ static struct resource jz4740_aux_resources[] = {
 static struct resource jz4740_battery_resources[] = {
 	{
 		.start = JZ_ADC_IRQ_BATTERY,
+		.end   = JZ_ADC_IRQ_BATTERY,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
