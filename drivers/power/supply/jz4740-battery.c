@@ -306,7 +306,8 @@ static int jz_battery_probe(struct platform_device *pdev)
 
 	jz_battery->irq = platform_get_irq(pdev, 0);
 	if (jz_battery->irq < 0) {
-		dev_err(&pdev->dev, "Failed to get platform irq: %d\n", ret);
+		dev_err(&pdev->dev, "Failed to get platform irq: %d\n",
+			jz_battery->irq);
 		return jz_battery->irq;
 	}
 
