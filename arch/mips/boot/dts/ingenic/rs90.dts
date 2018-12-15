@@ -155,6 +155,15 @@
 	cd-gpios = <&gpc 20 GPIO_ACTIVE_LOW>;
 };
 
+&battery {
+	battery-name = "battery";
+	technology = <3>; /* Lithium polymer */
+	max-uV = <5700000>;
+	min-uV = <4600000>;
+	/*charger = <&act8600>;*/
+	/*power-supplies = <&act8600>, <&usb_charger>, <&dc_charger>;*/
+};
+
 &uart {
 	status = "disabled";
 
