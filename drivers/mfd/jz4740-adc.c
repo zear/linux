@@ -71,17 +71,15 @@ static void jz4740_adc_irq_demux(struct irq_desc *desc)
 {
 	struct irq_chip_generic *gc = irq_desc_get_handler_data(desc);
 	struct irq_chip *irq_chip = irq_data_get_irq_chip(&desc->irq_data);
-	uint8_t status;
+	unsigned long status;
 	unsigned int i;
 
 	chained_irq_enter(irq_chip, desc);
 
 	status = readb(gc->reg_base + JZ_REG_ADC_STATUS);
 
-	for (i = 0; i < JZ_ADC_IRQ_NUM; ++i) {
-		if (status & BIT(i))
-			generic_handle_irq(gc->irq_base + i);
-	}
+	for_each_set_bit(i, &status, JZ_ADC_IRQ_NUM)
+		generic_handle_irq(gc->irq_base + i);
 
 	chained_irq_exit(irq_chip, desc);
 }
