@@ -287,7 +287,7 @@ static int jz_battery_probe(struct platform_device *pdev)
 		if (!pdata)
 			return -ENOMEM;
 
-		ret = jz_battery_read_info(&pdev->dev, &pdata.info);
+		ret = jz_battery_read_info(&pdev->dev, &pdata->info);
 		if (ret)
 			return ret;
 #else
@@ -346,8 +346,9 @@ static int jz_battery_probe(struct platform_device *pdev)
 
 	jz_battery->charger = power_supply_get_by_name("charger");
 	if (jz_battery->charger) {
-		devm_add_action(dev,
-			    (void (*)(void *))power_supply_put, charger);
+		devm_add_action(&pdev->dev,
+				(void (*)(void *))power_supply_put,
+				jz_battery->charger);
 	} else {
 		jz_battery->gpio_charge = devm_gpiod_get_optional(&pdev->dev,
 					"charge", GPIOD_IN);
@@ -356,7 +357,7 @@ static int jz_battery_probe(struct platform_device *pdev)
 	}
 
 	if (jz_battery->gpio_charge) {
-		jz_battery->charge_irq = gpiod_to_irq(pdata->gpio_charge);
+		jz_battery->charge_irq = gpiod_to_irq(jz_battery->gpio_charge);
 
 		ret = devm_request_irq(&pdev->dev,
 				    jz_battery->charge_irq,
