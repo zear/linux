@@ -252,6 +252,16 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 		return PTR_ERR(adc->clk);
 	}
 
+	/* Put hardware in a known passive state. */
+	ret = clk_prepare_enable(adc->clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable clock: %i\n", ret);
+		return ret;
+	}
+	writeb(0x00, adc->base + JZ_REG_ADC_ENABLE);
+	writeb(0xff, adc->base + JZ_REG_ADC_CTRL);
+	clk_disable_unprepare(adc->clk);
+
 	spin_lock_init(&adc->lock);
 
 	platform_set_drvdata(pdev, adc);
@@ -274,9 +284,6 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 
 	irq_set_chained_handler_and_data(adc->irq, jz4740_adc_irq_demux, gc);
 	devm_add_action(dev, (void (*)(void *))jz4740_adc_destroy_gc, adc);
-
-	writeb(0x00, adc->base + JZ_REG_ADC_ENABLE);
-	writeb(0xff, adc->base + JZ_REG_ADC_CTRL);
 
 	return devm_mfd_add_devices(dev, 0, jz4740_adc_cells,
 				    ARRAY_SIZE(jz4740_adc_cells), mem_base,
