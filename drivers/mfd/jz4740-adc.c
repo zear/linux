@@ -197,6 +197,7 @@ static const struct mfd_cell jz4740_adc_cells[] = {
 
 static int jz4740_adc_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
 	struct jz4740_adc *adc;
@@ -204,26 +205,26 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	int ret;
 	int irq_base;
 
-	adc = devm_kzalloc(&pdev->dev, sizeof(*adc), GFP_KERNEL);
+	adc = devm_kzalloc(dev, sizeof(*adc), GFP_KERNEL);
 	if (!adc)
 		return -ENOMEM;
 
 	adc->irq = platform_get_irq(pdev, 0);
 	if (adc->irq < 0) {
 		ret = adc->irq;
-		dev_err(&pdev->dev, "Failed to get platform irq: %d\n", ret);
+		dev_err(dev, "Failed to get platform irq: %d\n", ret);
 		return ret;
 	}
 
 	irq_base = platform_get_irq(pdev, 1);
 	if (irq_base < 0) {
-		dev_err(&pdev->dev, "Failed to get irq base: %d\n", irq_base);
+		dev_err(dev, "Failed to get irq base: %d\n", irq_base);
 		return irq_base;
 	}
 
 	mem_base = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_base) {
-		dev_err(&pdev->dev, "Failed to get platform mmio resource\n");
+		dev_err(dev, "Failed to get platform mmio resource\n");
 		return -ENOENT;
 	}
 
@@ -231,21 +232,21 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	adc->mem = request_mem_region(mem_base->start, JZ_REG_ADC_STATUS,
 					pdev->name);
 	if (!adc->mem) {
-		dev_err(&pdev->dev, "Failed to request mmio memory region\n");
+		dev_err(dev, "Failed to request mmio memory region\n");
 		return -EBUSY;
 	}
 
 	adc->base = ioremap_nocache(adc->mem->start, resource_size(adc->mem));
 	if (!adc->base) {
 		ret = -EBUSY;
-		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
+		dev_err(dev, "Failed to ioremap mmio memory\n");
 		goto err_release_mem_region;
 	}
 
-	adc->clk = clk_get(&pdev->dev, "adc");
+	adc->clk = clk_get(dev, "adc");
 	if (IS_ERR(adc->clk)) {
 		ret = PTR_ERR(adc->clk);
-		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
+		dev_err(dev, "Failed to get clock: %d\n", ret);
 		goto err_iounmap;
 	}
 
@@ -274,7 +275,7 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	writeb(0x00, adc->base + JZ_REG_ADC_ENABLE);
 	writeb(0xff, adc->base + JZ_REG_ADC_CTRL);
 
-	ret = mfd_add_devices(&pdev->dev, 0, jz4740_adc_cells,
+	ret = mfd_add_devices(dev, 0, jz4740_adc_cells,
 			      ARRAY_SIZE(jz4740_adc_cells), mem_base,
 			      irq_base, NULL);
 	if (ret < 0)
