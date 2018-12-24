@@ -56,7 +56,6 @@ enum {
 };
 
 struct jz4740_adc {
-	struct resource *mem;
 	void __iomem *base;
 
 	int irq;
@@ -195,13 +194,18 @@ static const struct mfd_cell jz4740_adc_cells[] = {
 	},
 };
 
+static void jz4740_adc_destroy_gc(struct jz4740_adc *adc)
+{
+	irq_set_chained_handler_and_data(adc->irq, NULL, NULL);
+}
+
 static int jz4740_adc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
 	struct jz4740_adc *adc;
-	struct resource *mem_base;
+	struct resource *mem_base, *mem;
 	int ret;
 	int irq_base;
 
@@ -229,33 +233,31 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	}
 
 	/* Only request the shared registers for the MFD driver */
-	adc->mem = request_mem_region(mem_base->start, JZ_REG_ADC_STATUS,
-					pdev->name);
-	if (!adc->mem) {
+	mem = devm_request_mem_region(dev, mem_base->start,
+				      JZ_REG_ADC_STATUS, pdev->name);
+	if (!mem) {
 		dev_err(dev, "Failed to request mmio memory region\n");
 		return -EBUSY;
 	}
 
-	adc->base = ioremap_nocache(adc->mem->start, resource_size(adc->mem));
+	adc->base = devm_ioremap_nocache(dev, mem->start, resource_size(mem));
 	if (!adc->base) {
-		ret = -EBUSY;
 		dev_err(dev, "Failed to ioremap mmio memory\n");
-		goto err_release_mem_region;
+		return -EBUSY;
 	}
 
-	adc->clk = clk_get(dev, "adc");
+	adc->clk = devm_clk_get(dev, "adc");
 	if (IS_ERR(adc->clk)) {
-		ret = PTR_ERR(adc->clk);
-		dev_err(dev, "Failed to get clock: %d\n", ret);
-		goto err_iounmap;
+		dev_err(dev, "Failed to get clock: %ld\n", PTR_ERR(adc->clk));
+		return PTR_ERR(adc->clk);
 	}
 
 	spin_lock_init(&adc->lock);
 
 	platform_set_drvdata(pdev, adc);
 
-	gc = irq_alloc_generic_chip("ADC", 1, irq_base, adc->base,
-		handle_level_irq);
+	gc = devm_irq_alloc_generic_chip(dev, "ADC", 1, irq_base,
+					 adc->base, handle_level_irq);
 
 	ct = gc->chip_types;
 	ct->regs.mask = JZ_REG_ADC_CTRL;
@@ -264,51 +266,21 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	ct->chip.irq_unmask = irq_gc_mask_clr_bit;
 	ct->chip.irq_ack = irq_gc_ack_set_bit;
 
-	irq_setup_generic_chip(gc, IRQ_MSK(JZ_ADC_IRQ_NUM),
-			       IRQ_GC_INIT_MASK_CACHE, 0,
-			       IRQ_NOPROBE | IRQ_LEVEL);
+	devm_irq_setup_generic_chip(dev, gc, IRQ_MSK(JZ_ADC_IRQ_NUM),
+				    IRQ_GC_INIT_MASK_CACHE, 0,
+				    IRQ_NOPROBE | IRQ_LEVEL);
 
 	adc->gc = gc;
 
 	irq_set_chained_handler_and_data(adc->irq, jz4740_adc_irq_demux, gc);
+	devm_add_action(dev, (void (*)(void *))jz4740_adc_destroy_gc, adc);
 
 	writeb(0x00, adc->base + JZ_REG_ADC_ENABLE);
 	writeb(0xff, adc->base + JZ_REG_ADC_CTRL);
 
-	ret = mfd_add_devices(dev, 0, jz4740_adc_cells,
-			      ARRAY_SIZE(jz4740_adc_cells), mem_base,
-			      irq_base, NULL);
-	if (ret < 0)
-		goto err_clk_put;
-
-	return 0;
-
-err_clk_put:
-	clk_put(adc->clk);
-err_iounmap:
-	iounmap(adc->base);
-err_release_mem_region:
-	release_mem_region(adc->mem->start, resource_size(adc->mem));
-	return ret;
-}
-
-static int jz4740_adc_remove(struct platform_device *pdev)
-{
-	struct jz4740_adc *adc = platform_get_drvdata(pdev);
-
-	mfd_remove_devices(&pdev->dev);
-
-	irq_remove_generic_chip(adc->gc, IRQ_MSK(JZ_ADC_IRQ_NUM),
-				IRQ_NOPROBE | IRQ_LEVEL, 0);
-	kfree(adc->gc);
-	irq_set_chained_handler_and_data(adc->irq, NULL, NULL);
-
-	iounmap(adc->base);
-	release_mem_region(adc->mem->start, resource_size(adc->mem));
-
-	clk_put(adc->clk);
-
-	return 0;
+	return devm_mfd_add_devices(dev, 0, jz4740_adc_cells,
+				    ARRAY_SIZE(jz4740_adc_cells), mem_base,
+				    irq_base, NULL);
 }
 
 #ifdef CONFIG_OF
@@ -321,7 +293,6 @@ MODULE_DEVICE_TABLE(of, jz4740_adc_of_match);
 
 static struct platform_driver jz4740_adc_driver = {
 	.probe	= jz4740_adc_probe,
-	.remove = jz4740_adc_remove,
 	.driver = {
 		.name = "jz4740-adc",
 		.of_match_table = of_match_ptr(jz4740_adc_of_match),
