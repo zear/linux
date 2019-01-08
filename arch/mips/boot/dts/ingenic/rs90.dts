@@ -4,6 +4,7 @@
 #include "jz4725b.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/ingenic,adc.h>
 #include <dt-bindings/input/input.h>
 
 / {
@@ -107,6 +108,26 @@
 				debounce-interval = <10>;
 			};
 		};
+
+		adc-keys {
+			compatible = "adc-keys";
+			io-channels = <&adc INGENIC_ADC_AUX>;
+			io-channel-names = "buttons";
+			keyup-threshold-microvolt = <1400000>;
+			poll-interval = <30>;
+			autorepeat = <1>;
+
+			left-shoulder {
+				label = "Left shoulder button";
+				linux,code = <KEY_TAB>;
+				press-threshold-microvolt = <800000>;
+			};
+			button-select {
+				label = "Select button";
+				linux,code = <KEY_ESC>;
+				press-threshold-microvolt = <1100000>;
+			};
+		};
 	};
 };
 
@@ -153,15 +174,6 @@
 	pinctrl-0 = <&pins_mmc1>;
 
 	cd-gpios = <&gpc 20 GPIO_ACTIVE_LOW>;
-};
-
-&battery {
-	battery-name = "battery";
-	technology = <3>; /* Lithium polymer */
-	max-uV = <5700000>;
-	min-uV = <4600000>;
-	/*charger = <&act8600>;*/
-	/*power-supplies = <&act8600>, <&usb_charger>, <&dc_charger>;*/
 };
 
 &uart {
