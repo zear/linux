@@ -561,7 +561,7 @@ config SND_SOC_CX20442
 
 config SND_SOC_JZ4740_CODEC
 	select REGMAP_MMIO
-	tristate
+	tristate "Ingenic JZ4740 internal CODEC"
 
 config SND_SOC_L3
        tristate
