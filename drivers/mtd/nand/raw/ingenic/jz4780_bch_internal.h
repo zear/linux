@@ -30,6 +30,7 @@ struct jz4780_bch {
 	struct mutex lock;
 };
 
+extern const struct jz4780_bch_ops jz4780_bch_jz4740_ops;
 extern const struct jz4780_bch_ops jz4780_bch_jz4725b_ops;
 extern const struct jz4780_bch_ops jz4780_bch_jz4780_ops;
 
