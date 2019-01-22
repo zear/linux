@@ -27,6 +27,50 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	amp_supply: fixedregulator-2 {
+		compatible = "regulator-fixed";
+		regulator-name = "amp_supply";
+		enable-gpios = <&gpd 4 GPIO_ACTIVE_HIGH>;
+
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	amp: audio-amp {
+		compatible = "simple-audio-amplifier";
+		enable-gpios = <&gpb 29 GPIO_ACTIVE_HIGH>;
+		VCC-supply = <&amp_supply>;
+	};
+
+	sound-card {
+		compatible = "simple-audio-card";
+
+		simple-audio-card,name = "lb60-audio";
+		simple-audio-card,format = "i2s";
+
+		simple-audio-card,widgets =
+			"Speaker", "Speaker",
+			"Microphone", "Mic";
+		simple-audio-card,routing =
+			"MIC", "Mic",
+			"Speaker", "OUTL",
+			"INL", "LOUT",
+			"INL", "ROUT";
+
+		simple-audio-card,aux-devs = <&amp>;
+
+		simple-audio-card,bitclock-master = <&dai_codec>;
+		simple-audio-card,frame-master = <&dai_codec>;
+
+		dai_cpu: simple-audio-card,cpu {
+			sound-dai = <&aic>;
+		};
+
+		dai_codec: simple-audio-card,codec {
+			sound-dai = <&codec>;
+		};
+	};
 };
 
 &ext {
