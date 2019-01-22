@@ -409,7 +409,7 @@ static int jz4725b_ooblayout_ecc(struct mtd_info *mtd, int section,
 		return -ERANGE;
 
 	oobregion->length = ecc->total;
-	oobregion->offset = 3;
+	oobregion->offset = 12;
 
 	return 0;
 }
@@ -423,8 +423,8 @@ static int jz4725b_ooblayout_free(struct mtd_info *mtd, int section,
 	if (section)
 		return -ERANGE;
 
-	oobregion->length = mtd->oobsize - ecc->total - 3;
-	oobregion->offset = 3 + ecc->total;
+	oobregion->length = mtd->oobsize - ecc->total - 12;
+	oobregion->offset = 12 + ecc->total;
 
 	return 0;
 }
