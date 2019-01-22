@@ -267,4 +267,16 @@
 
 		status = "disabled";
 	};
+
+	udc: udc@13040000 {
+		compatible = "ingenic,jz4740-musb";
+		reg = <0x13040000 0x10000>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <24>;
+		interrupt-names = "mc";
+
+		clocks = <&cgu JZ4740_CLK_UDC>;
+		clock-names = "udc";
+	};
 };
