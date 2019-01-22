@@ -242,6 +242,27 @@
 		clock-names = "baud", "module";
 	};
 
+	nemc: nemc@13010000 {
+		compatible = "ingenic,jz4725b-nemc";
+		reg = <0x13010000 0x54>;
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges = <1 0 0x18000000 0x4000000
+			  2 0 0x14000000 0x4000000
+			  3 0 0x0c000000 0x4000000
+			  4 0 0x08000000 0x4000000>;
+
+		clocks = <&cgu JZ4740_CLK_MCLK>;
+	};
+
+	bch: bch@13010100 {
+		compatible = "ingenic,jz4740-bch";
+		reg = <0x13010100 0x2C>;
+
+		clocks = <&cgu JZ4740_CLK_MCLK>;
+		clock-names = "bch";
+	};
+
 	dmac: dma-controller@13020000 {
 		compatible = "ingenic,jz4740-dma";
 		reg = <0x13020000 0xbc
