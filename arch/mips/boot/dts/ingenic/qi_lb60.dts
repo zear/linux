@@ -111,6 +111,11 @@
 			bias-disable;
 		};
 	};
+
+	pins_nemc: nemc {
+		function = "nand";
+		groups = "nand-cs1";
+	};
 };
 
 &tcu {
@@ -127,4 +132,52 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc>;
+};
+
+&nemc {
+	nandc: nand-controller@1 {
+		compatible = "ingenic,jz4725b-nand";
+		reg = <1 0 0x4000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ingenic,bch-controller = <&bch>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_nemc>;
+
+		rb-gpios = <&gpc 30 GPIO_ACTIVE_LOW>;
+
+		nand@1 {
+			reg = <1>;
+
+			nand-ecc-step-size = <512>;
+			nand-ecc-strength = <4>;
+			nand-ecc-mode = "hw";
+			nand-is-boot-medium;
+			nand-on-flash-bbt;
+
+			partitions {
+				compatible = "fixed-partitions";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				partition@0 {
+					label = "boot";
+					reg = <0x0 0x400000>;
+				};
+
+				partition@400000 {
+					label = "kernel";
+					reg = <0x400000 0x400000>;
+				};
+
+				partition@800000 {
+					label = "rootfs";
+					reg = <0x800000 0x0>;
+				};
+			};
+		};
+	};
 };

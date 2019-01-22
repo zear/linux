@@ -28,8 +28,6 @@
 #include <linux/power/jz4740-battery.h>
 #include <linux/power/gpio-charger.h>
 
-#include <linux/platform_data/jz4740/jz4740_nand.h>
-
 #include <asm/mach-jz4740/gpio.h>
 #include <asm/mach-jz4740/jz4740_fb.h>
 
@@ -44,124 +42,6 @@
 #define QI_LB60_GPIO_KEYOUT(x)		(JZ_GPIO_PORTC(10) + (x))
 #define QI_LB60_GPIO_KEYIN(x)		(JZ_GPIO_PORTD(18) + (x))
 #define QI_LB60_GPIO_KEYIN8		JZ_GPIO_PORTD(26)
-
-/* NAND */
-
-/* Early prototypes of the QI LB60 had only 1GB of NAND.
- * In order to support these devices as well the partition and ecc layout is
- * initialized depending on the NAND size */
-static struct mtd_partition qi_lb60_partitions_1gb[] = {
-	{
-		.name = "NAND BOOT partition",
-		.offset = 0 * 0x100000,
-		.size = 4 * 0x100000,
-	},
-	{
-		.name = "NAND KERNEL partition",
-		.offset = 4 * 0x100000,
-		.size = 4 * 0x100000,
-	},
-	{
-		.name = "NAND ROOTFS partition",
-		.offset = 8 * 0x100000,
-		.size = (504 + 512) * 0x100000,
-	},
-};
-
-static struct mtd_partition qi_lb60_partitions_2gb[] = {
-	{
-		.name = "NAND BOOT partition",
-		.offset = 0 * 0x100000,
-		.size = 4 * 0x100000,
-	},
-	{
-		.name = "NAND KERNEL partition",
-		.offset = 4 * 0x100000,
-		.size = 4 * 0x100000,
-	},
-	{
-		.name = "NAND ROOTFS partition",
-		.offset = 8 * 0x100000,
-		.size = (504 + 512 + 1024) * 0x100000,
-	},
-};
-
-static int qi_lb60_ooblayout_ecc(struct mtd_info *mtd, int section,
-				 struct mtd_oob_region *oobregion)
-{
-	if (section)
-		return -ERANGE;
-
-	oobregion->length = 36;
-	oobregion->offset = 6;
-
-	if (mtd->oobsize == 128) {
-		oobregion->length *= 2;
-		oobregion->offset *= 2;
-	}
-
-	return 0;
-}
-
-static int qi_lb60_ooblayout_free(struct mtd_info *mtd, int section,
-				  struct mtd_oob_region *oobregion)
-{
-	int eccbytes = 36, eccoff = 6;
-
-	if (section > 1)
-		return -ERANGE;
-
-	if (mtd->oobsize == 128) {
-		eccbytes *= 2;
-		eccoff *= 2;
-	}
-
-	if (!section) {
-		oobregion->offset = 2;
-		oobregion->length = eccoff - 2;
-	} else {
-		oobregion->offset = eccoff + eccbytes;
-		oobregion->length = mtd->oobsize - oobregion->offset;
-	}
-
-	return 0;
-}
-
-static const struct mtd_ooblayout_ops qi_lb60_ooblayout_ops = {
-	.ecc = qi_lb60_ooblayout_ecc,
-	.free = qi_lb60_ooblayout_free,
-};
-
-static void qi_lb60_nand_ident(struct platform_device *pdev,
-		struct mtd_info *mtd, struct mtd_partition **partitions,
-		int *num_partitions)
-{
-	struct nand_chip *chip = mtd_to_nand(mtd);
-
-	if (chip->page_shift == 12) {
-		*partitions = qi_lb60_partitions_2gb;
-		*num_partitions = ARRAY_SIZE(qi_lb60_partitions_2gb);
-	} else {
-		*partitions = qi_lb60_partitions_1gb;
-		*num_partitions = ARRAY_SIZE(qi_lb60_partitions_1gb);
-	}
-
-	mtd_set_ooblayout(mtd, &qi_lb60_ooblayout_ops);
-}
-
-static struct jz_nand_platform_data qi_lb60_nand_pdata = {
-	.ident_callback = qi_lb60_nand_ident,
-	.banks = { 1 },
-};
-
-static struct gpiod_lookup_table qi_lb60_nand_gpio_table = {
-	.dev_id = "jz4740-nand.0",
-	.table = {
-		GPIO_LOOKUP("GPIOC", 30, "busy", 0),
-		{ },
-	},
-};
-
 
 /* Keyboard*/
 
@@ -402,7 +282,6 @@ static struct platform_device qi_lb60_charger_device = {
 };
 
 static struct platform_device *jz_platform_devices[] __initdata = {
-	&jz4740_nand_device,
 	&qi_lb60_keypad,
 	&qi_lb60_spigpio_device,
 	&jz4740_framebuffer_device,
@@ -412,10 +291,6 @@ static struct platform_device *jz_platform_devices[] __initdata = {
 };
 
 static struct pinctrl_map pin_map[] __initdata = {
-	/* NAND pin configuration */
-	PIN_MAP_MUX_GROUP_DEFAULT("jz4740-nand",
-			"10010000.jz4740-pinctrl", "nand", "nand-cs1"),
-
 	/* fbdev pin configuration */
 	PIN_MAP_MUX_GROUP("jz4740-fb", PINCTRL_STATE_DEFAULT,
 			"10010000.jz4740-pinctrl", "lcd", "lcd-8bit"),
@@ -427,10 +302,8 @@ static struct pinctrl_map pin_map[] __initdata = {
 static int __init qi_lb60_init_platform_devices(void)
 {
 	jz4740_framebuffer_device.dev.platform_data = &qi_lb60_fb_pdata;
-	jz4740_nand_device.dev.platform_data = &qi_lb60_nand_pdata;
 	jz4740_adc_device.dev.platform_data = &qi_lb60_battery_pdata;
 
-	gpiod_add_lookup_table(&qi_lb60_nand_gpio_table);
 	gpiod_add_lookup_table(&qi_lb60_spigpio_gpio_table);
 
 	spi_register_board_info(qi_lb60_spi_board_info,
