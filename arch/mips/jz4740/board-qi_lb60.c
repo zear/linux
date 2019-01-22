@@ -401,21 +401,6 @@ static struct platform_device qi_lb60_charger_device = {
 	},
 };
 
-/* audio */
-static struct platform_device qi_lb60_audio_device = {
-	.name = "qi-lb60-audio",
-	.id = -1,
-};
-
-static struct gpiod_lookup_table qi_lb60_audio_gpio_table = {
-	.dev_id = "qi-lb60-audio",
-	.table = {
-		GPIO_LOOKUP("GPIOB", 29, "snd", 0),
-		GPIO_LOOKUP("GPIOD", 4, "amp", 0),
-		{ },
-	},
-};
-
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_udc_device,
 	&jz4740_udc_xceiv_device,
@@ -423,13 +408,9 @@ static struct platform_device *jz_platform_devices[] __initdata = {
 	&qi_lb60_keypad,
 	&qi_lb60_spigpio_device,
 	&jz4740_framebuffer_device,
-	&jz4740_pcm_device,
-	&jz4740_i2s_device,
-	&jz4740_codec_device,
 	&jz4740_adc_device,
 	&qi_lb60_gpio_keys,
 	&qi_lb60_charger_device,
-	&qi_lb60_audio_device,
 };
 
 static struct pinctrl_map pin_map[] __initdata = {
@@ -451,7 +432,6 @@ static int __init qi_lb60_init_platform_devices(void)
 	jz4740_nand_device.dev.platform_data = &qi_lb60_nand_pdata;
 	jz4740_adc_device.dev.platform_data = &qi_lb60_battery_pdata;
 
-	gpiod_add_lookup_table(&qi_lb60_audio_gpio_table);
 	gpiod_add_lookup_table(&qi_lb60_nand_gpio_table);
 	gpiod_add_lookup_table(&qi_lb60_spigpio_gpio_table);
 
