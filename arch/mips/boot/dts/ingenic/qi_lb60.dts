@@ -173,6 +173,24 @@
 			MATRIX_KEY(7, 2, KEY_QI_FN)	/* S60 */
 			>;
 	};
+
+	spi {
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sck-gpios = <&gpc 23 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpc 22 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpc 21 GPIO_ACTIVE_HIGH>;
+		num-chipselects = <1>;
+
+		spi@0 {
+			compatible = "ili8960";
+			reg = <0>;
+			spi-max-frequency = <30000>;
+			spi-3wire;
+		};
+	};
 };
 
 &ext {
