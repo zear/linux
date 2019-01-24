@@ -79,7 +79,7 @@ static int jz4740_bch_calculate(struct jz4780_bch *bch,
 	reg &= ~JZ_NAND_ECC_CTRL_ENABLE;
 	writel(reg, bch->base + JZ_REG_NAND_ECC_CTRL);
 
-	for (i = 0; i < 9; ++i)
+	for (i = 0; i < params->bytes; ++i)
 		ecc_code[i] = readb(bch->base + JZ_REG_NAND_PAR0 + i);
 
 	/* If the written data is completly 0xff, we also want to write 0xff as
