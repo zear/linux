@@ -18,8 +18,6 @@
 #include <linux/gpio/machine.h>
 
 #include <linux/input.h>
-#include <linux/spi/spi.h>
-#include <linux/spi/spi_gpio.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/power_supply.h>
@@ -64,41 +62,6 @@ static struct jz4740_fb_platform_data qi_lb60_fb_pdata = {
 	.pixclk_falling_edge = 1,
 };
 
-struct spi_gpio_platform_data qi_lb60_spigpio_platform_data = {
-	.num_chipselect = 1,
-};
-
-static struct platform_device qi_lb60_spigpio_device = {
-	.name = "spi_gpio",
-	.id   = 1,
-	.dev = {
-		.platform_data = &qi_lb60_spigpio_platform_data,
-	},
-};
-
-static struct gpiod_lookup_table qi_lb60_spigpio_gpio_table = {
-	.dev_id         = "spi_gpio",
-	.table          = {
-		GPIO_LOOKUP("GPIOC", 23,
-			    "sck", GPIO_ACTIVE_HIGH),
-		GPIO_LOOKUP("GPIOC", 22,
-			    "mosi", GPIO_ACTIVE_HIGH),
-		GPIO_LOOKUP("GPIOC", 21,
-			    "cs", GPIO_ACTIVE_HIGH),
-		{ },
-	},
-};
-
-static struct spi_board_info qi_lb60_spi_board_info[] = {
-	{
-		.modalias = "ili8960",
-		.chip_select = 0,
-		.bus_num = 1,
-		.max_speed_hz = 30 * 1000,
-		.mode = SPI_3WIRE,
-	},
-};
-
 /* Battery */
 static struct jz_battery_platform_data qi_lb60_battery_pdata = {
 	.gpio_charge =	JZ_GPIO_PORTC(27),
@@ -133,7 +96,6 @@ static struct platform_device qi_lb60_charger_device = {
 };
 
 static struct platform_device *jz_platform_devices[] __initdata = {
-	&qi_lb60_spigpio_device,
 	&jz4740_framebuffer_device,
 	&jz4740_adc_device,
 	&qi_lb60_charger_device,
@@ -152,11 +114,6 @@ static int __init qi_lb60_init_platform_devices(void)
 {
 	jz4740_framebuffer_device.dev.platform_data = &qi_lb60_fb_pdata;
 	jz4740_adc_device.dev.platform_data = &qi_lb60_battery_pdata;
-
-	gpiod_add_lookup_table(&qi_lb60_spigpio_gpio_table);
-
-	spi_register_board_info(qi_lb60_spi_board_info,
-				ARRAY_SIZE(qi_lb60_spi_board_info));
 
 	pinctrl_register_mappings(pin_map, ARRAY_SIZE(pin_map));
 
