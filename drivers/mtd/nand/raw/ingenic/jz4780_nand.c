@@ -167,7 +167,7 @@ static int jz4780_nand_attach_chip(struct nand_chip *chip)
 	int eccbytes;
 
 	chip->ecc.bytes = fls((1 + 8) * chip->ecc.size)	*
-				(chip->ecc.strength / 8);
+				((chip->ecc.strength + 7) / 8);
 
 	switch (chip->ecc.mode) {
 	case NAND_ECC_HW:
