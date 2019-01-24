@@ -660,7 +660,7 @@ static int __init ingenic_tcu_clocksource_init(struct ingenic_tcu *tcu)
 	cs->mask = CLOCKSOURCE_MASK(16);
 	cs->read = (u64 (*)(struct clocksource *))ingenic_tcu_timer_read;
 
-	err = clocksource_register_hz(cs, rate);
+//	err = clocksource_register_hz(cs, rate);
 	if (err)
 		goto err_clk_disable;
 
