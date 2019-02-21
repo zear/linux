@@ -20,9 +20,6 @@
 #include <linux/input.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf-generic.h>
-#include <linux/power_supply.h>
-#include <linux/power/jz4740-battery.h>
-#include <linux/power/gpio-charger.h>
 
 #include <asm/mach-jz4740/gpio.h>
 #include <asm/mach-jz4740/jz4740_fb.h>
@@ -62,43 +59,8 @@ static struct jz4740_fb_platform_data qi_lb60_fb_pdata = {
 	.pixclk_falling_edge = 1,
 };
 
-/* Battery */
-static struct jz_battery_platform_data qi_lb60_battery_pdata = {
-	.gpio_charge =	JZ_GPIO_PORTC(27),
-	.gpio_charge_active_low = 1,
-	.info = {
-		.name = "battery",
-		.technology = POWER_SUPPLY_TECHNOLOGY_LIPO,
-		.voltage_max_design = 4200000,
-		.voltage_min_design = 3600000,
-	},
-};
-
-/* charger */
-static char *qi_lb60_batteries[] = {
-	"battery",
-};
-
-static struct gpio_charger_platform_data qi_lb60_charger_pdata = {
-	.name = "usb",
-	.type = POWER_SUPPLY_TYPE_USB,
-	.gpio = JZ_GPIO_PORTD(28),
-	.gpio_active_low = 1,
-	.supplied_to = qi_lb60_batteries,
-	.num_supplicants = ARRAY_SIZE(qi_lb60_batteries),
-};
-
-static struct platform_device qi_lb60_charger_device = {
-	.name = "gpio-charger",
-	.dev = {
-		.platform_data = &qi_lb60_charger_pdata,
-	},
-};
-
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_framebuffer_device,
-	&jz4740_adc_device,
-	&qi_lb60_charger_device,
 };
 
 static struct pinctrl_map pin_map[] __initdata = {
@@ -113,7 +75,6 @@ static struct pinctrl_map pin_map[] __initdata = {
 static int __init qi_lb60_init_platform_devices(void)
 {
 	jz4740_framebuffer_device.dev.platform_data = &qi_lb60_fb_pdata;
-	jz4740_adc_device.dev.platform_data = &qi_lb60_battery_pdata;
 
 	pinctrl_register_mappings(pin_map, ARRAY_SIZE(pin_map));
 

@@ -5,6 +5,7 @@
 #include <dt-bindings/gpio/gpio.h>
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/ingenic,adc.h>
 #include <dt-bindings/input/input.h>
 
 #define KEY_QI_QI	KEY_F13
@@ -191,6 +192,28 @@
 			spi-3wire;
 		};
 	};
+
+	usb_charger: charger {
+		compatible = "gpio-charger";
+		charger-type = "usb-sdp";
+		gpios = <&gpd 28 GPIO_ACTIVE_LOW>;
+		status-gpios = <&gpc 27 GPIO_ACTIVE_LOW>;
+	};
+
+	simple_battery: battery {
+		compatible = "simple-battery";
+		voltage-min-design-microvolt = <3600000>;
+		voltage-max-design-microvolt = <4200000>;
+	};
+
+	ingenic_battery {
+		compatible = "ingenic,jz4740-battery";
+		io-channels = <&adc INGENIC_ADC_BATTERY>;
+		io-channel-names = "battery";
+		power-supplies = <&usb_charger>;
+		monitored-battery = <&simple_battery>;
+	};
+
 };
 
 &ext {
