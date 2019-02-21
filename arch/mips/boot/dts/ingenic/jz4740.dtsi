@@ -242,6 +242,18 @@
 		clock-names = "baud", "module";
 	};
 
+	adc: adc@10070000 {
+		compatible = "ingenic,jz4740-adc";
+		reg = <0x10070000 0x30>;
+		#io-channel-cells = <1>;
+
+		clocks = <&cgu JZ4740_CLK_ADC>;
+		clock-names = "adc";
+
+		interrupt-parent = <&intc>;
+		interrupts = <12>;
+	};
+
 	nemc: nemc@13010000 {
 		compatible = "ingenic,jz4725b-nemc";
 		reg = <0x13010000 0x54>;
