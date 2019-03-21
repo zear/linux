@@ -1794,6 +1794,7 @@ int musb_gadget_setup(struct musb *musb)
 
 	musb->is_active = 0;
 	musb_platform_try_idle(musb, 0);
+	musb_pullup(musb, 0);
 
 	status = usb_add_gadget_udc(musb->controller, &musb->g);
 	if (status)
