@@ -21,6 +21,8 @@
 
 #define MHZ (1000 * 1000)
 
+static int ingenic_pll_enable(struct clk_hw *hw);
+
 /**
  * ingenic_cgu_gate_get() - get the value of clock gate register bit
  * @cgu: reference to the CGU whose registers should be read
@@ -197,7 +199,7 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 	writel(ctl, cgu->base + pll_info->reg);
 	spin_unlock_irqrestore(&cgu->lock, flags);
 
-	return 0;
+	return ingenic_pll_enable(hw);
 }
 
 static int ingenic_pll_enable(struct clk_hw *hw)
@@ -683,7 +685,6 @@ static int ingenic_register_clock(struct ingenic_cgu *cgu, unsigned idx)
 		}
 	} else if (caps & CGU_CLK_PLL) {
 		clk_init.ops = &ingenic_pll_ops;
-		clk_init.flags |= CLK_SET_RATE_GATE;
 
 		caps &= ~CGU_CLK_PLL;
 
