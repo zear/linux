@@ -168,6 +168,8 @@ struct ingenic_drm {
 	dma_addr_t dma_hwdesc_phys;
 
 	bool panel_is_sharp;
+	bool update_clk_rate;
+	struct notifier_block clock_nb;
 };
 
 static const u32 ingenic_drm_primary_formats[] = {
@@ -220,6 +222,27 @@ drm_encoder_get_priv(struct drm_encoder *encoder)
 static inline struct ingenic_drm *drm_plane_get_priv(struct drm_plane *plane)
 {
 	return container_of(plane, struct ingenic_drm, primary);
+}
+
+static inline struct ingenic_drm *drm_nb_get_priv(struct notifier_block *nb)
+{
+	return container_of(nb, struct ingenic_drm, clock_nb);
+}
+
+static int ingenic_drm_update_pixclk(struct notifier_block *nb,
+				     unsigned long action,
+				     void *data)
+{
+	struct ingenic_drm *priv = drm_nb_get_priv(nb);
+
+	switch (action) {
+	case POST_RATE_CHANGE:
+		priv->update_clk_rate = true;
+		drm_crtc_wait_one_vblank(&priv->crtc);
+		return NOTIFY_OK;
+	default:
+		return NOTIFY_DONE;
+	}
 }
 
 static void ingenic_drm_crtc_atomic_enable(struct drm_crtc *crtc,
@@ -348,9 +371,14 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		ingenic_drm_crtc_update_timings(priv, &state->mode);
 		ingenic_drm_crtc_update_ctrl(priv, finfo);
 
-		clk_set_rate(priv->pix_clk, state->adjusted_mode.clock * 1000);
-
 		regmap_write(priv->map, JZ_REG_LCD_DA0, priv->dma_hwdesc->next);
+
+		priv->update_clk_rate = true;
+	}
+
+	if (priv->update_clk_rate) {
+		clk_set_rate(priv->pix_clk, state->adjusted_mode.clock * 1000);
+		priv->update_clk_rate = false;
 	}
 
 	if (event) {
@@ -775,10 +803,19 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 		}
 	}
 
+	priv->clock_nb.notifier_call = ingenic_drm_update_pixclk;
+
+	parent_clk = clk_get_parent(priv->pix_clk);
+	ret = clk_notifier_register(parent_clk, &priv->clock_nb);
+	if (ret) {
+		dev_err(dev, "Unable to register clock notifier");
+		goto err_devclk_disable;
+	}
+
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
 		dev_err(dev, "Failed to register DRM driver");
-		goto err_devclk_disable;
+		goto err_clk_notifier_unregister;
 	}
 
 	ret = drm_fbdev_generic_setup(drm, 32);
@@ -787,6 +824,8 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_clk_notifier_unregister:
+	clk_notifier_unregister(parent_clk, &priv->clock_nb);
 err_devclk_disable:
 	if (priv->lcd_clk)
 		clk_disable_unprepare(priv->lcd_clk);
@@ -798,7 +837,9 @@ err_pixclk_disable:
 static int ingenic_drm_remove(struct platform_device *pdev)
 {
 	struct ingenic_drm *priv = platform_get_drvdata(pdev);
+	struct clk *parent_clk = clk_get_parent(priv->pix_clk);
 
+	clk_notifier_unregister(parent_clk, &priv->clock_nb);
 	if (priv->lcd_clk)
 		clk_disable_unprepare(priv->lcd_clk);
 	clk_disable_unprepare(priv->pix_clk);
