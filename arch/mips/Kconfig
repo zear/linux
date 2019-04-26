@@ -392,6 +392,8 @@ config MACH_INGENIC
 	select BUILTIN_DTB if MIPS_NO_APPENDED_DTB
 	select USE_OF
 	select LIBFDT
+	select CPU_SUPPORTS_CPUFREQ
+	select MIPS_EXTERNAL_TIMER
 
 config LANTIQ
 	bool "Lantiq based platforms"
