@@ -186,9 +186,9 @@ static void jz4740_mmc_write_irq_reg(struct jz4740_mmc_host *host,
 				     uint32_t val)
 {
 	if (host->version >= JZ_MMC_JZ4780)
-		return writel(val, host->base + JZ_REG_MMC_IREG);
+		writel(val, host->base + JZ_REG_MMC_IREG);
 	else
-		return writew(val, host->base + JZ_REG_MMC_IREG);
+		writew(val, host->base + JZ_REG_MMC_IREG);
 }
 
 static uint32_t jz4740_mmc_read_irq_reg(struct jz4740_mmc_host *host)
