@@ -820,14 +820,14 @@ static irqreturn_t jz_mmc_irq(int irq, void *devid)
 			del_timer(&host->timeout_timer);
 
 			if (status & JZ_MMC_STATUS_TIMEOUT_RES) {
-					cmd->error = -ETIMEDOUT;
+				cmd->error = -ETIMEDOUT;
 			} else if (status & JZ_MMC_STATUS_CRC_RES_ERR) {
-					cmd->error = -EIO;
+				cmd->error = -EIO;
 			} else if (status & (JZ_MMC_STATUS_CRC_READ_ERROR |
 				    JZ_MMC_STATUS_CRC_WRITE_ERROR)) {
-					if (cmd->data)
-							cmd->data->error = -EIO;
-					cmd->error = -EIO;
+				if (cmd->data)
+					cmd->data->error = -EIO;
+				cmd->error = -EIO;
 			}
 
 			jz4740_mmc_set_irq_enabled(host, irq_reg, false);
