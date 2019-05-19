@@ -498,6 +498,8 @@ static int ingenic_drm_encoder_atomic_check(struct drm_encoder *encoder,
 	switch (*info->bus_formats) {
 	case MEDIA_BUS_FMT_RGB565_1X16:
 	case MEDIA_BUS_FMT_RGB666_1X18:
+	case MEDIA_BUS_FMT_RGB888_1X24:
+	case MEDIA_BUS_FMT_RGB888_3X8_BE:
 		return 0;
 	default:
 		return -EINVAL;
