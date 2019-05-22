@@ -46,7 +46,7 @@
 				regulator-always-on;
 			};
 
-			usb_power: regulator@1 {
+			usb_vbus: regulator@1 {
 				compatible = "regulator-fixed";
 				regulator-name = "USB Power";
 				gpio = <&gpf 10 0>;
@@ -304,7 +304,7 @@
 						 */
 						regulator-min-microvolt = <5300000>;
 						regulator-max-microvolt = <5300000>;
-						vin-supply = <&vcc>;
+						inl-supply = <&vcc>;
 					};
 
 					/* When this is off, there is no sound, but also no USB networking. */
@@ -312,14 +312,15 @@
 						regulator-min-microvolt = <2500000>;
 						regulator-max-microvolt = <2500000>;
 						regulator-always-on;
-						vin-supply = <&vcc>;
+						inl-supply = <&vcc>;
 					};
 
 					/* LCD panel and FM radio */
 					ldo6: LDO6 {
 						regulator-min-microvolt = <3300000>;
 						regulator-max-microvolt = <3300000>;
-						vin-supply = <&vcc>;
+						regulator-always-on;
+						inl-supply = <&vcc>;
 					};
 
 					/* ??? */
@@ -327,7 +328,7 @@
 						regulator-min-microvolt = <3300000>;
 						regulator-max-microvolt = <3300000>;
 						/*regulator-always-on;*/
-						vin-supply = <&vcc>;
+						inl-supply = <&vcc>;
 					};
 
 					/*
@@ -338,7 +339,8 @@
 					ldo8: LDO8 {
 						regulator-min-microvolt = <1800000>;
 						regulator-max-microvolt = <1800000>;
-						vin-supply = <&vcc>;
+						regulator-always-on;
+						inl-supply = <&vcc>;
 					};
 
 					/* RTC fixed 3.3V */
@@ -346,12 +348,12 @@
 						regulator-min-microvolt = <3300000>;
 						regulator-max-microvolt = <3300000>;
 						regulator-always-on;
-						vin-supply = <&vcc>;
+						inl-supply = <&vcc>;
 					};
 
 					/* Unused fixed 1.2V */
 					LDO_REG10 {
-						vin-supply = <&vcc>;
+						inl-supply = <&vcc>;
 					};
 				};
 
@@ -545,6 +547,8 @@
 
 &usb_otg {
 	status = "okay";
+
+	vbus-supply = <&usb_vbus>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_otg>;
