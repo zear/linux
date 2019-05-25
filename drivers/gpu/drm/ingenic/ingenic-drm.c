@@ -423,7 +423,8 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 
 	priv->dma_hwdesc->addr = drm_fb_cma_get_gem_addr(state->fb, state, 0);
 
-	priv->dma_hwdesc->cmd = width * height * ((finfo->depth + 7) / 8) / 4;
+	//TODO
+	priv->dma_hwdesc->cmd = width * height /** ((finfo->depth + 7) / 8) / 4*/;
 	priv->dma_hwdesc->cmd |= JZ_LCD_CMD_EOF_IRQ;
 }
 
@@ -837,7 +838,7 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 		goto err_clk_notifier_unregister;
 	}
 
-	ret = drm_fbdev_generic_setup(drm, 16);
+	ret = drm_fbdev_generic_setup(drm, 32);
 	if (ret)
 		dev_warn(dev, "Unable to start fbdev emulation: %i", ret);
 
