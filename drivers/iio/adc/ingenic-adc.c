@@ -17,6 +17,8 @@
 #include <linux/platform_device.h>
 
 #define JZ4725B_ADC_CLKDIV_10US_LSB	16
+#define JZ4770_ADC_CLKDIV_10US_LSB	8
+#define JZ4770_ADC_CLKDIV_MS_LSB	16
 
 #define JZ_ADC_REG_ENABLE		0x00
 #define JZ_ADC_REG_CFG			0x04
@@ -27,6 +29,8 @@
 #define JZ_ADC_REG_ADSDAT		0x20
 #define JZ_ADC_REG_ADCLK		0x28
 
+#define JZ_ADC_REG_ENABLE_PD		BIT(7)
+#define JZ_ADC_REG_CFG_AUX_MD		(BIT(0) | BIT(1))
 #define JZ_ADC_REG_CFG_BAT_MD		BIT(4)
 
 #define JZ_ADC_AUX_VREF				3300
@@ -37,6 +41,8 @@
 #define JZ4725B_ADC_BATTERY_HIGH_VREF_BITS	10
 #define JZ4740_ADC_BATTERY_HIGH_VREF		(7500 * 0.986)
 #define JZ4740_ADC_BATTERY_HIGH_VREF_BITS	12
+#define JZ4770_ADC_BATTERY_VREF			6600
+#define JZ4770_ADC_BATTERY_VREF_BITS		12
 
 struct ingenic_adc;
 
@@ -47,6 +53,11 @@ struct ingenic_adc_soc_data {
 	size_t battery_raw_avail_size;
 	const int *battery_scale_avail;
 	size_t battery_scale_avail_size;
+	const struct iio_chan_spec *channels;
+	size_t channels_size;
+	bool battery_vref_mode;
+	bool aux_input_mode;
+	bool power_control;
 	int (*init_clk_div)(struct device *dev, struct ingenic_adc *adc);
 };
 
@@ -54,6 +65,7 @@ struct ingenic_adc {
 	void __iomem *base;
 	struct clk *clk;
 	struct mutex lock;
+	struct mutex aux_lock;
 	const struct ingenic_adc_soc_data *soc_data;
 	bool low_vref_mode;
 };
@@ -120,6 +132,10 @@ static int ingenic_adc_write_raw(struct iio_dev *iio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->address) {
 		case INGENIC_ADC_BATTERY:
+			if (!adc->soc_data->battery_vref_mode) {
+				adc->low_vref_mode = false;
+				return 0;
+			}
 			if (val > JZ_ADC_BATTERY_LOW_VREF) {
 				ingenic_adc_set_config(adc,
 						       JZ_ADC_REG_CFG_BAT_MD,
@@ -158,6 +174,14 @@ static const int jz4740_adc_battery_scale_avail[] = {
 	JZ_ADC_BATTERY_LOW_VREF, JZ_ADC_BATTERY_LOW_VREF_BITS,
 };
 
+static const int jz4770_adc_battery_raw_avail[] = {
+	0, 1, (1 << JZ4770_ADC_BATTERY_VREF_BITS) - 1,
+};
+
+static const int jz4770_adc_battery_scale_avail[] = {
+	JZ4770_ADC_BATTERY_VREF, JZ4770_ADC_BATTERY_VREF_BITS,
+};
+
 static int jz4725b_adc_init_clk_div(struct device *dev, struct ingenic_adc *adc)
 {
 	struct clk *parent_clk;
@@ -193,6 +217,47 @@ static int jz4725b_adc_init_clk_div(struct device *dev, struct ingenic_adc *adc)
 
 	writel(((div_10us - 1) << JZ4725B_ADC_CLKDIV_10US_LSB) | (div_main - 1),
 			adc->base + JZ_ADC_REG_ADCLK);
+
+	return 0;
+}
+
+static int jz4770_adc_init_clk_div(struct device *dev, struct ingenic_adc *adc)
+{
+	struct clk *parent_clk;
+	unsigned long parent_rate, rate;
+	unsigned int div_main, div_ms, div_10us;
+
+	parent_clk = clk_get_parent(adc->clk);
+	if (!parent_clk) {
+		dev_err(dev, "ADC clock has no parent\n");
+		return -ENODEV;
+	}
+	parent_rate = clk_get_rate(parent_clk);
+
+	/*
+	 * The JZ4770 ADC works at 20 kHz to 200 kHz.
+	 * We pick the highest rate possible.
+	 */
+	div_main = DIV_ROUND_UP(parent_rate, 200000);
+	div_main = clamp(div_main, 1u, 256u);
+	rate = parent_rate / div_main;
+	if (rate < 20000 || rate > 200000) {
+		dev_err(dev, "No valid divider for ADC main clock\n");
+		return -EINVAL;
+	}
+
+	/* We also need a divider that produces a 10us clock. */
+	div_10us = DIV_ROUND_UP(rate, 100000);
+	if (div_10us < 1 || div_10us > 128) {
+		dev_err(dev, "No valid divider for ADC 10us clock\n");
+		return -EINVAL;
+	}
+	/* And a divider that produces a 1ms clock. */
+	div_ms = DIV_ROUND_UP(rate, 1000);
+
+	writel(((div_ms - 1) << JZ4770_ADC_CLKDIV_MS_LSB) |
+	       ((div_10us - 1) << JZ4770_ADC_CLKDIV_10US_LSB) |
+	       (div_main - 1), adc->base + JZ_ADC_REG_ADCLK);
 
 	return 0;
 }
@@ -235,6 +300,35 @@ static const struct iio_chan_spec ingenic_adc_channels[] = {
 	},
 };
 
+static const struct iio_chan_spec ingenic_adc_jz4770_channels[] = {
+	{
+		.extend_name = "aux",
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.indexed = 1,
+		.address = INGENIC_ADC_AUX,
+	},
+	{
+		.extend_name = "aux2",
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.indexed = 1,
+		.address = INGENIC_ADC_AUX2,
+	},
+	{
+		.extend_name = "battery",
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW) |
+						BIT(IIO_CHAN_INFO_SCALE),
+		.indexed = 1,
+		.address = INGENIC_ADC_BATTERY,
+	},
+};
+
 static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
 	.battery_high_vref = JZ4725B_ADC_BATTERY_HIGH_VREF,
 	.battery_high_vref_bits = JZ4725B_ADC_BATTERY_HIGH_VREF_BITS,
@@ -242,6 +336,11 @@ static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
 	.battery_raw_avail_size = ARRAY_SIZE(jz4725b_adc_battery_raw_avail),
 	.battery_scale_avail = jz4725b_adc_battery_scale_avail,
 	.battery_scale_avail_size = ARRAY_SIZE(jz4725b_adc_battery_scale_avail),
+	.channels = ingenic_adc_channels,
+	.channels_size = ARRAY_SIZE(ingenic_adc_channels),
+	.battery_vref_mode = true,
+	.aux_input_mode = false,
+	.power_control = false,
 	.init_clk_div = jz4725b_adc_init_clk_div,
 };
 
@@ -252,7 +351,27 @@ static const struct ingenic_adc_soc_data jz4740_adc_soc_data = {
 	.battery_raw_avail_size = ARRAY_SIZE(jz4740_adc_battery_raw_avail),
 	.battery_scale_avail = jz4740_adc_battery_scale_avail,
 	.battery_scale_avail_size = ARRAY_SIZE(jz4740_adc_battery_scale_avail),
+	.channels = ingenic_adc_channels,
+	.channels_size = ARRAY_SIZE(ingenic_adc_channels),
+	.battery_vref_mode = true,
+	.aux_input_mode = false,
+	.power_control = false,
 	.init_clk_div = NULL, /* no ADCLK register on JZ4740 */
+};
+
+static const struct ingenic_adc_soc_data jz4770_adc_soc_data = {
+	.battery_high_vref = JZ4770_ADC_BATTERY_VREF,
+	.battery_high_vref_bits = JZ4770_ADC_BATTERY_VREF_BITS,
+	.battery_raw_avail = jz4770_adc_battery_raw_avail,
+	.battery_raw_avail_size = ARRAY_SIZE(jz4770_adc_battery_raw_avail),
+	.battery_scale_avail = jz4770_adc_battery_scale_avail,
+	.battery_scale_avail_size = ARRAY_SIZE(jz4770_adc_battery_scale_avail),
+	.channels = ingenic_adc_jz4770_channels,
+	.channels_size = ARRAY_SIZE(ingenic_adc_jz4770_channels),
+	.battery_vref_mode = false,
+	.aux_input_mode = true,
+	.power_control = true,
+	.init_clk_div = jz4770_adc_init_clk_div,
 };
 
 static int ingenic_adc_read_avail(struct iio_dev *iio_dev,
@@ -287,19 +406,39 @@ static int ingenic_adc_read_raw(struct iio_dev *iio_dev,
 				long m)
 {
 	struct ingenic_adc *adc = iio_priv(iio_dev);
+	struct mutex *lock = NULL;
+	int engine = -1;
 	int ret;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		clk_enable(adc->clk);
-		ret = ingenic_adc_capture(adc, chan->channel);
-		if (ret) {
-			clk_disable(adc->clk);
-			return ret;
+		switch (chan->address) {
+		case INGENIC_ADC_AUX:
+		case INGENIC_ADC_AUX2:
+			engine = 0;
+			if (adc->soc_data->aux_input_mode)
+				lock = &adc->aux_lock;
+			break;
+		case INGENIC_ADC_BATTERY:
+			engine = 1;
+			break;
 		}
+
+		if (lock)
+			mutex_lock(lock);
+		if (adc->soc_data->aux_input_mode && engine == 0) {
+			int val = BIT(chan->address == INGENIC_ADC_AUX2);
+			ingenic_adc_set_config(adc, JZ_ADC_REG_CFG_AUX_MD, val);
+		}
+
+		clk_enable(adc->clk);
+		ret = ingenic_adc_capture(adc, engine);
+		if (ret)
+			goto error;
 
 		switch (chan->address) {
 		case INGENIC_ADC_AUX:
+		case INGENIC_ADC_AUX2:
 			*val = readw(adc->base + JZ_ADC_REG_ADSDAT);
 			break;
 		case INGENIC_ADC_BATTERY:
@@ -308,11 +447,14 @@ static int ingenic_adc_read_raw(struct iio_dev *iio_dev,
 		}
 
 		clk_disable(adc->clk);
+		if (lock)
+			mutex_unlock(lock);
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->address) {
 		case INGENIC_ADC_AUX:
+		case INGENIC_ADC_AUX2:
 			*val = JZ_ADC_AUX_VREF;
 			*val2 = JZ_ADC_AUX_VREF_BITS;
 			break;
@@ -331,6 +473,22 @@ static int ingenic_adc_read_raw(struct iio_dev *iio_dev,
 	default:
 		return -EINVAL;
 	}
+
+error:
+	clk_disable(adc->clk);
+	if (lock)
+		mutex_unlock(lock);
+
+	return ret;
+}
+
+static void ingenic_adc_power_down(void *data)
+{
+	struct ingenic_adc *adc = data;
+
+	clk_enable(adc->clk);
+	writeb(JZ_ADC_REG_ENABLE_PD, adc->base + JZ_ADC_REG_ENABLE);
+	clk_disable(adc->clk);
 }
 
 static void ingenic_adc_clk_cleanup(void *data)
@@ -364,6 +522,7 @@ static int ingenic_adc_probe(struct platform_device *pdev)
 
 	adc = iio_priv(iio_dev);
 	mutex_init(&adc->lock);
+	mutex_init(&adc->aux_lock);
 	adc->soc_data = soc_data;
 
 	mem_base = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -394,16 +553,25 @@ static int ingenic_adc_probe(struct platform_device *pdev)
 			goto err_clk;
 	}
 
+	if (adc->soc_data->power_control) {
+		ret = devm_add_action_or_reset(dev, ingenic_adc_power_down,
+					       adc);
+		if (ret)
+			goto err_add_action;
+	}
+
 	/* Put hardware in a known passive state. */
-	writeb(0x00, adc->base + JZ_ADC_REG_ENABLE);
+	writeb(0x0, adc->base + JZ_ADC_REG_ENABLE);
+	if (adc->soc_data->power_control)
+		usleep_range(2000, 3000); /* Must wait at least 2ms. */
 	writeb(0xff, adc->base + JZ_ADC_REG_CTRL);
 	clk_disable(adc->clk);
 
 	iio_dev->dev.parent = dev;
 	iio_dev->name = "jz-adc";
 	iio_dev->modes = INDIO_DIRECT_MODE;
-	iio_dev->channels = ingenic_channels;
-	iio_dev->num_channels = ARRAY_SIZE(ingenic_channels);
+	iio_dev->channels = adc->soc_data->channels;
+	iio_dev->num_channels = adc->soc_data->channels_size;
 	iio_dev->info = &ingenic_adc_info;
 
 	ret = devm_iio_device_register(dev, iio_dev);
@@ -423,6 +591,7 @@ err_clk:
 static const struct of_device_id ingenic_adc_of_match[] = {
 	{ .compatible = "ingenic,jz4725b-adc", .data = &jz4725b_adc_soc_data, },
 	{ .compatible = "ingenic,jz4740-adc", .data = &jz4740_adc_soc_data, },
+	{ .compatible = "ingenic,jz4770-adc", .data = &jz4770_adc_soc_data, },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ingenic_adc_of_match);
