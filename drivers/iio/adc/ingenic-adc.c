@@ -118,7 +118,7 @@ static int ingenic_adc_write_raw(struct iio_dev *iio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_SCALE:
-		switch (chan->channel) {
+		switch (chan->address) {
 		case INGENIC_ADC_BATTERY:
 			if (val > JZ_ADC_BATTERY_LOW_VREF) {
 				ingenic_adc_set_config(adc,
@@ -197,6 +197,44 @@ static int jz4725b_adc_init_clk_div(struct device *dev, struct ingenic_adc *adc)
 	return 0;
 }
 
+static int ingenic_adc_of_xlate(struct iio_dev *indio_dev,
+				  const struct of_phandle_args *iiospec)
+{
+	int i;
+
+	if (!iiospec->args_count)
+		return 0;
+
+	for (i = 0; i < indio_dev->num_channels; ++i) {
+		if (indio_dev->channels[i].address != iiospec->args[0])
+			continue;
+		return i;
+	}
+
+	return -EINVAL;
+}
+
+static const struct iio_chan_spec ingenic_adc_channels[] = {
+	{
+		.extend_name = "aux",
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.indexed = 1,
+		.address = INGENIC_ADC_AUX,
+	},
+	{
+		.extend_name = "battery",
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW) |
+						BIT(IIO_CHAN_INFO_SCALE),
+		.indexed = 1,
+		.address = INGENIC_ADC_BATTERY,
+	},
+};
+
 static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
 	.battery_high_vref = JZ4725B_ADC_BATTERY_HIGH_VREF,
 	.battery_high_vref_bits = JZ4725B_ADC_BATTERY_HIGH_VREF_BITS,
@@ -260,7 +298,7 @@ static int ingenic_adc_read_raw(struct iio_dev *iio_dev,
 			return ret;
 		}
 
-		switch (chan->channel) {
+		switch (chan->address) {
 		case INGENIC_ADC_AUX:
 			*val = readw(adc->base + JZ_ADC_REG_ADSDAT);
 			break;
@@ -273,7 +311,7 @@ static int ingenic_adc_read_raw(struct iio_dev *iio_dev,
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		switch (chan->channel) {
+		switch (chan->address) {
 		case INGENIC_ADC_AUX:
 			*val = JZ_ADC_AUX_VREF;
 			*val2 = JZ_ADC_AUX_VREF_BITS;
@@ -304,27 +342,7 @@ static const struct iio_info ingenic_adc_info = {
 	.write_raw = ingenic_adc_write_raw,
 	.read_raw = ingenic_adc_read_raw,
 	.read_avail = ingenic_adc_read_avail,
-};
-
-static const struct iio_chan_spec ingenic_channels[] = {
-	{
-		.extend_name = "aux",
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.indexed = 1,
-		.channel = INGENIC_ADC_AUX,
-	},
-	{
-		.extend_name = "battery",
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW) |
-						BIT(IIO_CHAN_INFO_SCALE),
-		.indexed = 1,
-		.channel = INGENIC_ADC_BATTERY,
-	},
+	.of_xlate = ingenic_adc_of_xlate,
 };
 
 static int ingenic_adc_probe(struct platform_device *pdev)
