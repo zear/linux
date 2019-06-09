@@ -387,7 +387,7 @@
 	};
 
 	adc: adc@10070000 {
-		compatible = "ingenic,jz4725b-adc";
+		compatible = "ingenic,jz4770-adc";
 		#io-channel-cells = <1>;
 
 		reg = <0x10070000 0x30>;
