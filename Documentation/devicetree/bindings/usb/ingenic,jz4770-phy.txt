@@ -1,0 +1,31 @@
+Ingenic JZ4770 USB PHY
+
+Required properties:
+- compatible: Must be "ingenic,jz4770-phy"
+- #phy-cells: Must be 0
+- clocks: phandle to the PHY clock.
+  See Documentation/devicetree/bindings/clock/clock-bindings.txt
+- clock-names: Should be "phy"
+
+Optional properties:
+- extcon : external connector for idpin change detection, needed
+           when using dual-role mode.
+
+Example:
+
+otg_extcon: extcon {
+	compatible = "linux,extcon-usb-gpio";
+	id-gpio = <&gpf 18 GPIO_ACTIVE_HIGH>;
+};
+
+otg_phy: usb-phy@1000003c {
+	compatible = "ingenic,jz4770-phy";
+	reg = <0x1000003c 0x10>;
+
+	clocks = <&cgu JZ4770_CLK_OTG_PHY>;
+	clock-names = "otg_phy";
+
+	#phy-cells = <0>;
+
+	extcon = <&otg_extcon>;
+};
