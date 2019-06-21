@@ -21,6 +21,71 @@ struct jz4740_glue {
 	struct clk		*clk;
 };
 
+static void jz4740_musb_vbus_enable(struct musb *musb)
+{
+	struct device *dev = musb->controller->parent;
+	u8 devctl;
+	int ret;
+
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	/*
+	 * HDRC controls CPEN, but beware current surges during device
+	 * connect.  They can trigger transient overcurrent conditions
+	 * that must be ignored.
+	 */
+
+	ret = usb_phy_vbus_on(musb->xceiv);
+	if (ret) {
+		dev_err(dev, "Unable to enable vbus: %d", ret);
+		return;
+	}
+
+	musb->is_active = 1;
+	musb->xceiv->otg->default_a = 1;
+	musb->xceiv->otg->state = OTG_STATE_A_WAIT_VRISE;
+	devctl |= MUSB_DEVCTL_SESSION;
+	MUSB_HST_MODE(musb);
+
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+}
+
+static void jz4740_musb_vbus_disable(struct musb *musb)
+{
+	struct device *dev = musb->controller->parent;
+	u8 devctl;
+	int ret;
+
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	ret = usb_phy_vbus_off(musb->xceiv);
+	if (ret) {
+		dev_err(dev, "Unable to disable vbus: %d", ret);
+		return;
+	}
+
+	musb->is_active = 0;
+
+	/*
+	 * NOTE:  we're skipping A_WAIT_VFALL -> A_IDLE and
+	 * jumping right to B_IDLE.
+	 */
+	musb->xceiv->otg->default_a = 0;
+	musb->xceiv->otg->state = OTG_STATE_B_IDLE;
+	devctl &= ~MUSB_DEVCTL_SESSION;
+	MUSB_DEV_MODE(musb);
+
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+}
+
+static void jz4740_musb_set_vbus(struct musb *musb, int is_on)
+{
+	if (is_on)
+		jz4740_musb_vbus_enable(musb);
+	else
+		jz4740_musb_vbus_disable(musb);
+}
+
 static irqreturn_t jz4740_musb_interrupt(int irq, void *__hci)
 {
 	unsigned long	flags;
@@ -108,6 +173,7 @@ static const struct musb_platform_ops jz4740_musb_ops = {
 	.dma_init	= musbhs_dma_controller_create,
 	.dma_exit	= musbhs_dma_controller_destroy,
 #endif
+	.set_vbus	= jz4740_musb_set_vbus,
 };
 
 static const struct musb_hdrc_platform_data jz4740_musb_pdata = {
@@ -116,10 +182,37 @@ static const struct musb_hdrc_platform_data jz4740_musb_pdata = {
 	.platform_ops	= &jz4740_musb_ops,
 };
 
+static struct musb_fifo_cfg jz4770_musb_fifo_cfg[] = {
+	{ .hw_ep_num = 1, .style = FIFO_TX, .maxpacket = 512, },
+	{ .hw_ep_num = 1, .style = FIFO_RX, .maxpacket = 512, },
+	{ .hw_ep_num = 2, .style = FIFO_TX, .maxpacket = 512, },
+	{ .hw_ep_num = 2, .style = FIFO_RX, .maxpacket = 512, },
+	{ .hw_ep_num = 3, .style = FIFO_TX, .maxpacket = 512, },
+	{ .hw_ep_num = 3, .style = FIFO_RX, .maxpacket = 512, },
+	{ .hw_ep_num = 4, .style = FIFO_TX, .maxpacket = 512, },
+	{ .hw_ep_num = 4, .style = FIFO_RX, .maxpacket = 512, },
+	{ .hw_ep_num = 5, .style = FIFO_TX, .maxpacket = 512, },
+	{ .hw_ep_num = 5, .style = FIFO_RX, .maxpacket = 512, },
+};
+
+static struct musb_hdrc_config jz4770_musb_config = {
+	.multipoint	= 1,
+	.num_eps	= 11,
+	.ram_bits	= 11,
+	.fifo_cfg	= jz4770_musb_fifo_cfg,
+	.fifo_cfg_size	= ARRAY_SIZE(jz4770_musb_fifo_cfg),
+};
+
+static const struct musb_hdrc_platform_data jz4770_musb_pdata = {
+	.mode		= MUSB_OTG,
+	.config		= &jz4770_musb_config,
+	.platform_ops	= &jz4740_musb_ops,
+};
+
 static int jz4740_probe(struct platform_device *pdev)
 {
 	struct device			*dev = &pdev->dev;
-	const struct musb_hdrc_platform_data *pdata = &jz4740_musb_pdata;
+	const struct musb_hdrc_platform_data *pdata;
 	struct platform_device		*musb;
 	struct jz4740_glue		*glue;
 	struct clk			*clk;
@@ -128,6 +221,12 @@ static int jz4740_probe(struct platform_device *pdev)
 	glue = devm_kzalloc(dev, sizeof(*glue), GFP_KERNEL);
 	if (!glue)
 		return -ENOMEM;
+
+	pdata = of_device_get_match_data(dev);
+	if (!pdata) {
+		dev_err(dev, "missing platform data");
+		return -EINVAL;
+	}
 
 	musb = platform_device_alloc("musb-hdrc", PLATFORM_DEVID_AUTO);
 	if (!musb) {
@@ -195,20 +294,19 @@ static int jz4740_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id jz4740_musb_of_match[] = {
-	{ .compatible = "ingenic,jz4740-musb" },
+	{ .compatible = "ingenic,jz4740-musb", .data = &jz4740_musb_pdata },
+	{ .compatible = "ingenic,jz4770-musb", .data = &jz4770_musb_pdata },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, jz4740_musb_of_match);
-#endif
 
 static struct platform_driver jz4740_driver = {
 	.probe		= jz4740_probe,
 	.remove		= jz4740_remove,
 	.driver		= {
 		.name	= "musb-jz4740",
-		.of_match_table = of_match_ptr(jz4740_musb_of_match),
+		.of_match_table = jz4740_musb_of_match,
 	},
 };
 
