@@ -80,6 +80,10 @@ static int ingenic_battery_set_scale(struct ingenic_battery *bat)
 	if (ret != IIO_AVAIL_LIST || scale_type != IIO_VAL_FRACTIONAL_LOG2)
 		return -EINVAL;
 
+	/* Only one (fractional) entry - nothing to change */
+	if (scale_len == 2)
+		return 0;
+
 	max_mV = bat->info.voltage_max_design_uv / 1000;
 
 	for (i = 0; i < scale_len; i += 2) {
