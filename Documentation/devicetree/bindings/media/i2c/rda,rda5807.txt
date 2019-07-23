@@ -1,0 +1,30 @@
+* Unisoc Communications RDA5807 FM radio receiver
+
+
+Required properties:
+- compatible: Must be "rda,rda5807"
+
+Optional properties:
+- rda,lnan: Use LNAN input port.
+- rda,lnap: Use LNAP input port.
+  Dual port input is possible.
+
+- rda,lna-current: LNA working current: 1800, 2100, 2500 or 3000 uA.
+  Default is 2500 uA (2.5 mA).
+
+- rda,analog-out: Enable analog output.
+
+- rda,i2s-out: Enable I2S output.
+
+
+Example:
+
+&i2c {
+	rda5807@11 {
+		compatible = "rda,rda5807";
+		reg = <0x11>;
+		rda,lnap;
+		rda,lna-current = <2500>;
+		rda,analog-out;
+	};
+};
