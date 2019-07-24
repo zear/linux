@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/fb.h>
 #include <linux/backlight.h>
@@ -44,6 +45,8 @@ static void pwm_backlight_power_on(struct pwm_bl_data *pb)
 {
 	struct pwm_state state;
 	int err;
+
+	pinctrl_pm_select_default_state(pb->dev);
 
 	pwm_get_state(pb->pwm, &state);
 	if (pb->enabled)
@@ -85,6 +88,8 @@ static void pwm_backlight_power_off(struct pwm_bl_data *pb)
 
 	regulator_disable(pb->power_supply);
 	pb->enabled = false;
+
+	pinctrl_pm_select_sleep_state(pb->dev);
 }
 
 static int compute_duty_cycle(struct pwm_bl_data *pb, int brightness)
@@ -609,6 +614,10 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	backlight_update_status(bl);
 
 	platform_set_drvdata(pdev, bl);
+
+	if (bl->props.power == FB_BLANK_POWERDOWN)
+		pinctrl_pm_select_sleep_state(&pdev->dev);
+
 	return 0;
 
 err_alloc:
