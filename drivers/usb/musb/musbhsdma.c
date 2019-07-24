@@ -268,7 +268,7 @@ static int dma_channel_abort(struct dma_channel *channel)
 	return 0;
 }
 
-static irqreturn_t dma_controller_irq(int irq, void *private_data)
+static irqreturn_t dma_controller_irq_cb(int irq, void *private_data)
 {
 	struct musb_dma_controller *controller = private_data;
 	struct musb *musb = controller->private_data;
@@ -292,6 +292,9 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	int_hsdma = musb_readb(mbase, MUSB_HSDMA_INTR);
 
 	if (!int_hsdma) {
+		if (musb->dma_share_usb_irq)
+			goto done;
+
 		musb_dbg(musb, "spurious DMA irq");
 
 		for (bchannel = 0; bchannel < MUSB_HSDMA_CHANNELS; bchannel++) {
@@ -384,6 +387,15 @@ done:
 	return retval;
 }
 
+irqreturn_t musbhs_dma_controller_irq(struct dma_controller *c)
+{
+	struct musb_dma_controller *controller = container_of(c,
+			struct musb_dma_controller, controller);
+
+	return dma_controller_irq_cb(controller->irq, controller);
+}
+EXPORT_SYMBOL_GPL(musbhs_dma_controller_irq);
+
 void musbhs_dma_controller_destroy(struct dma_controller *c)
 {
 	struct musb_dma_controller *controller = container_of(c,
@@ -404,9 +416,14 @@ struct dma_controller *musbhs_dma_controller_create(struct musb *musb,
 	struct musb_dma_controller *controller;
 	struct device *dev = musb->controller;
 	struct platform_device *pdev = to_platform_device(dev);
-	int irq = platform_get_irq_byname(pdev, "dma");
+	int irq;
 
-	if (irq <= 0) {
+	if (musb->dma_share_usb_irq)
+		irq = 0;
+	else
+		irq = platform_get_irq_byname(pdev, "dma");
+
+	if (irq < 0) {
 		dev_err(dev, "No DMA interrupt line!\n");
 		return NULL;
 	}
@@ -424,8 +441,8 @@ struct dma_controller *musbhs_dma_controller_create(struct musb *musb,
 	controller->controller.channel_program = dma_channel_program;
 	controller->controller.channel_abort = dma_channel_abort;
 
-	if (request_irq(irq, dma_controller_irq, 0,
-			dev_name(musb->controller), &controller->controller)) {
+	if (irq > 0 && request_irq(irq, dma_controller_irq_cb, 0,
+				   dev_name(musb->controller), controller)) {
 		dev_err(dev, "request_irq %d failed!\n", irq);
 		musb_dma_controller_destroy(&controller->controller);
 

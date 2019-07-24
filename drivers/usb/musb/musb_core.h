@@ -392,6 +392,8 @@ struct musb {
 
 	unsigned		flush_irq_work:1;
 
+	unsigned		dma_share_usb_irq:1;
+
 	u8			address;
 	u8			test_mode_nr;
 	u16			ackpend;		/* ep0 */

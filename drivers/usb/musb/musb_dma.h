@@ -191,6 +191,7 @@ extern void (*musb_dma_controller_destroy)(struct dma_controller *);
 extern struct dma_controller *
 musbhs_dma_controller_create(struct musb *musb, void __iomem *base);
 extern void musbhs_dma_controller_destroy(struct dma_controller *c);
+extern irqreturn_t musbhs_dma_controller_irq(struct dma_controller *c);
 
 extern struct dma_controller *
 tusb_dma_controller_create(struct musb *musb, void __iomem *base);
