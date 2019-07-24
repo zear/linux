@@ -1985,6 +1985,10 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 	 */
 	if ((c->processor_id & PRID_COMP_MASK) == PRID_COMP_INGENIC_D0)
 		c->isa_level &= ~MIPS_CPU_ISA_M32R2;
+
+	/* config7 bit 6 controls the "partial kernel mode" */
+	if (IS_ENABLED(CONFIG_MIPS_XBURST_PARTIAL_KERNEL_MODE))
+		set_c0_config7(BIT(6));
 }
 
 static inline void cpu_probe_netlogic(struct cpuinfo_mips *c, int cpu)
