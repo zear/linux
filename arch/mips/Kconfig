@@ -2986,6 +2986,13 @@ config MIPS_O32_FP64_SUPPORT
 
 	  If unsure, say N.
 
+config MIPS_XBURST_PARTIAL_KERNEL_MODE
+	bool "Partial kernel mode for Xburst CPUs" if MACH_INGENIC
+	help
+	  Support partial kernel mode of Xburst CPUs found in Ingenic SoCs.
+	  Partial kernel mode means the userspace applications have access to
+	  the TCSM0 banks of the VPU, and can execute cache instructions.
+
 config USE_OF
 	bool
 	select OF
