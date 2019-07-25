@@ -30,7 +30,6 @@
 struct vpu_mem_map {
 	const char *name;
 	unsigned int da;
-	bool direct_io;
 };
 
 struct vpu_mem_info {
@@ -40,7 +39,7 @@ struct vpu_mem_info {
 };
 
 static const struct vpu_mem_map vpu_mem_map[] = {
-	{ "tcsm0", 0x132b0000, true },
+	{ "tcsm0", 0x132b0000 },
 	{ "tcsm1", 0xf4000000 },
 	{ "sram",  0x132f0000 },
 };
@@ -219,27 +218,11 @@ static int ingenic_rproc_probe(struct platform_device *pdev)
 		mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   vpu_mem_map[i].name);
 
-		if (vpu_mem_map[i].direct_io) {
-			/*
-			 * Handle shared memories that cannot be iomapped.
-			 * They can be read or written directly through their
-			 * physical address.
-			 */
-			if (!devm_request_mem_region(dev, mem->start,
-						     resource_size(mem),
-						     dev_name(dev))) {
-				dev_err(dev, "Unable to request memory region");
-				return -EBUSY;
-			}
-
-			vpu->mem_info[i].base = (void __iomem *)mem->start;
-		} else {
-			vpu->mem_info[i].base = devm_ioremap_resource(dev, mem);
-			if (IS_ERR(vpu->mem_info[i].base)) {
-				ret = PTR_ERR(vpu->mem_info[i].base);
-				dev_err(dev, "Failed to ioremap");
-				return ret;
-			}
+		vpu->mem_info[i].base = devm_ioremap_resource(dev, mem);
+		if (IS_ERR(vpu->mem_info[i].base)) {
+			ret = PTR_ERR(vpu->mem_info[i].base);
+			dev_err(dev, "Failed to ioremap");
+			return ret;
 		}
 
 		vpu->mem_info[i].len = resource_size(mem);
