@@ -279,6 +279,12 @@ config SPI_FSL_QUADSPI
 	  This controller does not support generic SPI messages. It only
 	  supports the high-level SPI memory interface.
 
+config SPI_INGENIC
+	tristate "Ingenic JZ47xx SoCs SPI controller"
+	depends on MACH_JZ4780 || COMPILE_TEST
+	help
+	  This enables support for the Ingenic JZ47xx SoCs SPI controller.
+
 config SPI_NXP_FLEXSPI
 	tristate "NXP Flex SPI controller"
 	depends on ARCH_LAYERSCAPE || HAS_IOMEM

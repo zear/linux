@@ -77,7 +77,7 @@
 	status = "okay";
 
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_uart3>;
+	pinctrl-0 = <&pins_uart2>;
 };
 
 &uart4 {
@@ -85,6 +85,19 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_uart4>;
+};
+
+&spi0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_spi0>;
+
+	spidev@0 {
+			compatible = "spidev";
+			reg = <0>;
+			spi-max-frequency = <1000000>;
+		};
 };
 
 &nemc {
@@ -197,9 +210,9 @@
 		bias-disable;
 	};
 
-	pins_uart3: uart3 {
-		function = "uart3";
-		groups = "uart3-data", "uart3-hwflow";
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data", "uart2-hwflow";
 		bias-disable;
 	};
 
@@ -237,6 +250,18 @@
 		function = "mmc1";
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
 		bias-disable;
+	};
+
+	pins_spi0: spi0 {
+		spi0 {
+			function = "spi0";
+			groups = "spi0";
+		};
+
+		spi0-bias {
+			pins = "PE14";
+			bias-pull-up;
+		};
 	};
 };
 
