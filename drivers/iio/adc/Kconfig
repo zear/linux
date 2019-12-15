@@ -446,6 +446,9 @@ config INA2XX_ADC
 config INGENIC_ADC
 	tristate "Ingenic JZ47xx SoCs ADC driver"
 	depends on MIPS || COMPILE_TEST
+	select IIO_BUFFER
+	select IIO_BUFFER_CB
+	select IIO_KFIFO_BUF
 	help
 	  Say yes here to build support for the Ingenic JZ47xx SoCs ADC unit.
 
