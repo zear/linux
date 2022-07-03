@@ -802,13 +802,19 @@ static irqreturn_t ingenic_adc_irq(int irq, void *data)
 	struct ingenic_adc *adc = iio_priv(iio_dev);
 	unsigned long mask = iio_dev->active_scan_mask[0];
 	unsigned int i;
-	u32 tdat[3];
+	u16 tdat[6];
+	u32 val;
 
-	for (i = 0; i < ARRAY_SIZE(tdat); mask >>= 2, i++) {
-		if (mask & 0x3)
-			tdat[i] = readl(adc->base + JZ_ADC_REG_ADTCH);
-		else
-			tdat[i] = 0;
+	memset(tdat, 0, ARRAY_SIZE(tdat));
+	for (i = 0; mask && i < ARRAY_SIZE(tdat); mask >>= 2) {
+		if (mask & 0x3) {
+			val = readl(adc->base + JZ_ADC_REG_ADTCH);
+			/* Two channels per sample. Demux active. */
+			if (mask & BIT(0))
+				tdat[i++] = val & 0xffff;
+			if (mask & BIT(1))
+				tdat[i++] = val >> 16;
+		}
 	}
 
 	iio_push_to_buffers(iio_dev, tdat);
