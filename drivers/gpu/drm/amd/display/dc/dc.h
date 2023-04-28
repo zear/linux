@@ -45,7 +45,7 @@ struct aux_payload;
 struct set_config_cmd_payload;
 struct dmub_notification;
 
-#define DC_VER "3.2.230"
+#define DC_VER "3.2.233"
 
 #define MAX_SURFACES 3
 #define MAX_PLANES 6
@@ -209,6 +209,8 @@ struct dc_color_caps {
 struct dc_dmub_caps {
 	bool psr;
 	bool mclk_sw;
+	bool subvp_psr;
+	bool gecc_enable;
 };
 
 struct dc_caps {
@@ -855,7 +857,6 @@ struct dc_debug_options {
 	bool force_usr_allow;
 	/* uses value at boot and disables switch */
 	bool disable_dtb_ref_clk_switch;
-	uint32_t fixed_vs_aux_delay_config_wa;
 	bool extended_blank_optimization;
 	union aux_wake_wa_options aux_wake_wa;
 	uint32_t mst_start_top_delay;
@@ -879,6 +880,9 @@ struct dc_debug_options {
 	uint32_t fpo_vactive_margin_us;
 	bool disable_fpo_vactive;
 	bool disable_boot_optimizations;
+	bool override_odm_optimization;
+	bool minimize_dispclk_using_odm;
+	bool disable_subvp_high_refresh;
 };
 
 struct gpu_info_soc_bounding_box_v1_0;
@@ -1454,6 +1458,7 @@ struct dc_link {
 
 	struct ddc_service *ddc;
 
+	enum dp_panel_mode panel_mode;
 	bool aux_mode;
 
 	/* Private to DC core */
@@ -2125,8 +2130,6 @@ struct dc_sink_init_data {
 	bool converter_disable_audio;
 };
 
-bool dc_extended_blank_supported(struct dc *dc);
-
 struct dc_sink *dc_sink_create(const struct dc_sink_init_data *init_params);
 
 /* Newer interfaces  */
@@ -2224,5 +2227,8 @@ void dc_process_dmub_dpia_hpd_int_enable(const struct dc *dc,
 
 /* Disable acc mode Interfaces */
 void dc_disable_accelerated_mode(struct dc *dc);
+
+bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
+		       struct dc_stream_state *new_stream);
 
 #endif /* DC_INTERFACE_H_ */

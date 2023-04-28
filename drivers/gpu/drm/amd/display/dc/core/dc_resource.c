@@ -69,6 +69,10 @@
 #include "../dcn32/dcn32_resource.h"
 #include "../dcn321/dcn321_resource.h"
 
+#define VISUAL_CONFIRM_RECT_HEIGHT_DEFAULT 3
+#define VISUAL_CONFIRM_RECT_HEIGHT_MIN 1
+#define VISUAL_CONFIRM_RECT_HEIGHT_MAX 10
+
 #define DC_LOGGER_INIT(logger)
 
 enum dce_version resource_parse_asic_id(struct hw_asic_id asic_id)
@@ -807,6 +811,8 @@ static void calculate_recout(struct pipe_ctx *pipe_ctx)
 	struct rect surf_clip = plane_state->clip_rect;
 	bool split_tb = stream->view_format == VIEW_3D_FORMAT_TOP_AND_BOTTOM;
 	int split_count, split_idx;
+	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+	unsigned short visual_confirm_rect_height = VISUAL_CONFIRM_RECT_HEIGHT_DEFAULT;
 
 	calculate_split_count_and_index(pipe_ctx, &split_count, &split_idx);
 	if (stream->view_format == VIEW_3D_FORMAT_SIDE_BY_SIDE)
@@ -874,6 +880,18 @@ static void calculate_recout(struct pipe_ctx *pipe_ctx)
 			} else
 				data->recout.width = data->h_active - data->recout.x;
 		}
+	}
+
+	/* Check bounds to ensure the VC bar height was set to a sane value */
+	if (dpp != NULL) {
+		if ((dpp->ctx->dc->debug.visual_confirm_rect_height >= VISUAL_CONFIRM_RECT_HEIGHT_MIN) &&
+			(dpp->ctx->dc->debug.visual_confirm_rect_height <= VISUAL_CONFIRM_RECT_HEIGHT_MAX)) {
+			visual_confirm_rect_height = dpp->ctx->dc->debug.visual_confirm_rect_height;
+		}
+
+		if (dpp->ctx->dc->debug.visual_confirm != VISUAL_CONFIRM_DISABLE)
+			data->recout.height = data->recout.height -
+					2 * (dpp->inst + visual_confirm_rect_height);
 	}
 }
 
@@ -1707,6 +1725,9 @@ bool dc_remove_plane_from_context(
 	struct dc_stream_status *stream_status = NULL;
 	struct resource_pool *pool = dc->res_pool;
 
+	if (!plane_state)
+		return true;
+
 	for (i = 0; i < context->stream_count; i++)
 		if (context->streams[i] == stream) {
 			stream_status = &context->stream_status[i];
@@ -1855,7 +1876,7 @@ bool dc_add_all_planes_for_stream(
 	return add_all_planes_for_stream(dc, stream, &set, 1, context);
 }
 
-bool is_timing_changed(struct dc_stream_state *cur_stream,
+bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
 		       struct dc_stream_state *new_stream)
 {
 	if (cur_stream == NULL)
@@ -1880,7 +1901,7 @@ static bool are_stream_backends_same(
 	if (stream_a == NULL || stream_b == NULL)
 		return false;
 
-	if (is_timing_changed(stream_a, stream_b))
+	if (dc_is_timing_changed(stream_a, stream_b))
 		return false;
 
 	if (stream_a->signal != stream_b->signal)
@@ -3505,7 +3526,7 @@ bool pipe_need_reprogram(
 	if (pipe_ctx_old->stream_res.stream_enc != pipe_ctx->stream_res.stream_enc)
 		return true;
 
-	if (is_timing_changed(pipe_ctx_old->stream, pipe_ctx->stream))
+	if (dc_is_timing_changed(pipe_ctx_old->stream, pipe_ctx->stream))
 		return true;
 
 	if (pipe_ctx_old->stream->dpms_off != pipe_ctx->stream->dpms_off)
