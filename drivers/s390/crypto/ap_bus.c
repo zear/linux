@@ -1570,7 +1570,7 @@ static ssize_t bindings_show(const struct bus_type *bus, char *buf)
 
 static BUS_ATTR_RO(bindings);
 
-static ssize_t features_show(struct bus_type *bus, char *buf)
+static ssize_t features_show(const struct bus_type *bus, char *buf)
 {
 	int n = 0;
 
