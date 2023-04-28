@@ -42,7 +42,6 @@
 	.if \allregs
 	PTR_S		tp, sp, PT_R2
 	PTR_S		t0, sp, PT_R12
-	PTR_S		t1, sp, PT_R13
 	PTR_S		t2, sp, PT_R14
 	PTR_S		t3, sp, PT_R15
 	PTR_S		t4, sp, PT_R16
@@ -64,6 +63,8 @@
 	PTR_S		zero, sp, PT_R0
 	.endif
 	PTR_S		ra, sp, PT_ERA /* Save trace function ra at PT_ERA */
+	move		t1, zero
+	PTR_S		t1, sp, PT_R13
 	PTR_ADDI	t8, sp, PT_SIZE
 	PTR_S		t8, sp, PT_R3
 	.endm
@@ -104,8 +105,12 @@ ftrace_common_return:
 	PTR_L		a7, sp, PT_R11
 	PTR_L		fp, sp, PT_R22
 	PTR_L		t0, sp, PT_ERA
+	PTR_L		t1, sp, PT_R13
 	PTR_ADDI	sp, sp, PT_SIZE
+	bnez		t1, .Ldirect
 	jr		t0
+.Ldirect:
+	jr		t1
 SYM_CODE_END(ftrace_common)
 
 SYM_CODE_START(ftrace_caller)
